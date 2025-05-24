@@ -9,6 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { Save, Send, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import AIFormSuggestions from "./AIFormSuggestions";
+import MissingInfoAlert from "./MissingInfoAlert";
 
 interface EvaluationFormProps {
   caseId: string;
@@ -41,8 +43,23 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
     futureDisability: ""
   });
 
+  // Mock documents for the case
+  const mockDocuments = [
+    { id: "DOC001", name: "Medical Records - Emergency Room", category: "medical" },
+    { id: "DOC003", name: "Police Report", category: "legal" },
+    { id: "DOC002", name: "X-Ray Results", category: "imaging" }
+  ];
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAcceptSuggestion = (field: string, value: string) => {
+    handleInputChange(field, value);
+  };
+
+  const handleRejectSuggestion = (field: string) => {
+    console.log("Rejected suggestion for field:", field);
   };
 
   const handleSave = () => {
@@ -64,6 +81,18 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Missing Information Alert */}
+      <MissingInfoAlert caseId={caseId} documents={mockDocuments} />
+      
+      {/* AI Form Suggestions */}
+      <AIFormSuggestions
+        caseId={caseId}
+        documents={mockDocuments}
+        currentFormData={formData}
+        onAcceptSuggestion={handleAcceptSuggestion}
+        onRejectSuggestion={handleRejectSuggestion}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">

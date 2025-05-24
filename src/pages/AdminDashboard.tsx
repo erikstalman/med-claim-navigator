@@ -3,244 +3,268 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Shield, LogOut, User, Eye, Clock, DollarSign, FileText, Search, Filter } from "lucide-react";
-import AIPayoutRecommendation from "@/components/AIPayoutRecommendation";
+import { 
+  Search, 
+  Filter, 
+  Eye, 
+  Upload, 
+  Clock, 
+  FileText, 
+  User,
+  BarChart3,
+  TrendingUp,
+  AlertCircle
+} from "lucide-react";
+import DocumentUpload from "@/components/DocumentUpload";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
 
-  // Mock data for completed evaluations
-  const evaluations = [
+  // Mock data for cases
+  const cases = [
     {
       id: "C001",
-      caseId: "C001",
       patientName: "John Anderson",
-      doctor: "Dr. Sarah Wilson",
-      evaluationDate: "2024-01-25",
-      medicalConnection: "Yes",
-      disability: "Yes",
-      disabilityGrade: "26-50%",
-      status: "completed",
+      accidentDate: "2024-01-15",
+      submissionDate: "2024-01-20",
+      status: "pending-evaluation",
+      priority: "high",
+      injuryType: "Motor Vehicle Accident",
+      doctorAssigned: "Dr. Michael Smith",
       claimAmount: "$45,000",
-      recommendedPayout: "$32,500"
+      documentsCount: 6,
+      evaluationStatus: "not-started"
+    },
+    {
+      id: "C002",
+      patientName: "Sarah Johnson",
+      accidentDate: "2024-01-18",
+      submissionDate: "2024-01-22",
+      status: "under-review",
+      priority: "medium",
+      injuryType: "Workplace Injury",
+      doctorAssigned: "Dr. Emily Davis",
+      claimAmount: "$28,000",
+      documentsCount: 4,
+      evaluationStatus: "in-progress"
     },
     {
       id: "C003",
-      caseId: "C003",
-      patientName: "Michael Brown",
-      doctor: "Dr. Sarah Wilson",
-      evaluationDate: "2024-01-20",
-      medicalConnection: "No",
-      disability: "No",
-      disabilityGrade: "N/A",
+      patientName: "Robert Wilson",
+      accidentDate: "2024-01-10",
+      submissionDate: "2024-01-25",
       status: "completed",
-      claimAmount: "$28,000",
-      recommendedPayout: "$0"
+      priority: "low",
+      injuryType: "Slip and Fall",
+      doctorAssigned: "Dr. Michael Smith",
+      claimAmount: "$15,000",
+      documentsCount: 8,
+      evaluationStatus: "completed"
     }
   ];
 
-  // Mock data for doctor activity logs
-  const activityLogs = [
-    {
-      id: "LOG001",
-      doctor: "Dr. Sarah Wilson",
-      action: "Opened case C001",
-      timestamp: "2024-01-25 14:30:22",
-      document: "Medical Records - Emergency Room",
-      duration: "45 minutes"
-    },
-    {
-      id: "LOG002",
-      doctor: "Dr. Sarah Wilson",
-      action: "Viewed document DOC001",
-      timestamp: "2024-01-25 14:32:15",
-      document: "Medical Records - Emergency Room",
-      duration: "12 minutes"
-    },
-    {
-      id: "LOG003",
-      doctor: "Dr. Sarah Wilson",
-      action: "Used AI chat for case C001",
-      timestamp: "2024-01-25 14:45:33",
-      document: "Multiple documents",
-      duration: "8 minutes"
-    },
-    {
-      id: "LOG004",
-      doctor: "Dr. Sarah Wilson",
-      action: "Submitted evaluation for C001",
-      timestamp: "2024-01-25 15:20:45",
-      document: "Evaluation Form",
-      duration: "35 minutes"
-    },
-    {
-      id: "LOG005",
-      doctor: "Dr. Sarah Wilson",
-      action: "Opened case C003",
-      timestamp: "2024-01-20 10:15:12",
-      document: "Police Report",
-      duration: "25 minutes"
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pending-evaluation": return "bg-yellow-100 text-yellow-800";
+      case "under-review": return "bg-blue-100 text-blue-800";
+      case "completed": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
     }
-  ];
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "high": return "bg-red-100 text-red-800";
+      case "medium": return "bg-yellow-100 text-yellow-800";
+      case "low": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const filteredCases = cases.filter(case_ =>
+    case_.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    case_.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                <Shield className="h-5 w-5 text-white" />
-              </div>
-              <h1 className="text-xl font-bold text-gray-900">Administrator Dashboard</h1>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Insurance Administration</h1>
+            <p className="text-gray-600">Healthcare Claims Management Platform</p>
           </div>
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <User className="h-4 w-4" />
-              <span>Admin User</span>
-            </div>
             <Button 
-              variant="outline" 
-              size="sm" 
+              variant="outline"
               onClick={() => navigate("/")}
-              className="flex items-center space-x-2"
             >
-              <LogOut className="h-4 w-4" />
-              <span>Logout</span>
+              Logout
             </Button>
           </div>
         </div>
       </header>
 
       <div className="p-6">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Evaluations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">2</div>
-              <p className="text-xs text-gray-500">Completed this month</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Claims Approved</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">1</div>
-              <p className="text-xs text-gray-500">50% approval rate</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Payout</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">$32,500</div>
-              <p className="text-xs text-gray-500">This month</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Avg. Review Time</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">2.3 hrs</div>
-              <p className="text-xs text-gray-500">Per case</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="evaluations" className="space-y-4">
+        <Tabs defaultValue="cases" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="evaluations">Doctor Evaluations</TabsTrigger>
-            <TabsTrigger value="activity">Activity Logs</TabsTrigger>
-            <TabsTrigger value="payout">AI Payout Analysis</TabsTrigger>
+            <TabsTrigger value="cases" className="flex items-center space-x-2">
+              <FileText className="h-4 w-4" />
+              <span>Case Management</span>
+            </TabsTrigger>
+            <TabsTrigger value="upload" className="flex items-center space-x-2">
+              <Upload className="h-4 w-4" />
+              <span>Document Upload</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center space-x-2">
+              <BarChart3 className="h-4 w-4" />
+              <span>Analytics</span>
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="evaluations" className="space-y-4">
+          <TabsContent value="cases" className="space-y-6">
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Total Cases</p>
+                      <p className="text-2xl font-bold text-gray-900">24</p>
+                    </div>
+                    <FileText className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Pending Review</p>
+                      <p className="text-2xl font-bold text-yellow-600">8</p>
+                    </div>
+                    <Clock className="h-8 w-8 text-yellow-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Completed</p>
+                      <p className="text-2xl font-bold text-green-600">12</p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">High Priority</p>
+                      <p className="text-2xl font-bold text-red-600">4</p>
+                    </div>
+                    <AlertCircle className="h-8 w-8 text-red-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Search and Filter */}
             <Card>
               <CardHeader>
-                <CardTitle>Completed Evaluations</CardTitle>
-                <CardDescription>
-                  Review doctor evaluations and case recommendations
-                </CardDescription>
+                <CardTitle>Case Management</CardTitle>
+                <CardDescription>Manage healthcare claims and track evaluation progress</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search cases by patient name or case ID..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Button variant="outline" className="flex items-center space-x-2">
+                    <Filter className="h-4 w-4" />
+                    <span>Filter</span>
+                  </Button>
+                </div>
+
+                {/* Cases List */}
                 <div className="space-y-4">
-                  {evaluations.map((evaluation) => (
-                    <Card key={evaluation.id} className="hover:shadow-md transition-shadow">
+                  {filteredCases.map((case_) => (
+                    <Card key={case_.id} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h3 className="font-semibold text-lg">{evaluation.patientName}</h3>
-                            <p className="text-sm text-gray-600">
-                              Case {evaluation.caseId} • Evaluated by {evaluation.doctor}
-                            </p>
-                          </div>
-                          <Badge className="bg-green-100 text-green-800">
-                            {evaluation.status}
-                          </Badge>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium text-gray-600">Medical Connection:</span>
-                            <div className={`font-semibold ${
-                              evaluation.medicalConnection === "Yes" ? "text-green-600" : "text-red-600"
-                            }`}>
-                              {evaluation.medicalConnection}
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h3 className="text-lg font-semibold text-gray-900">
+                                {case_.patientName}
+                              </h3>
+                              <Badge className={getStatusColor(case_.status)}>
+                                {case_.status.replace("-", " ")}
+                              </Badge>
+                              <Badge className={getPriorityColor(case_.priority)}>
+                                {case_.priority}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                              <div>
+                                <span className="font-medium">Case ID:</span> {case_.id}
+                              </div>
+                              <div>
+                                <span className="font-medium">Accident:</span> {case_.accidentDate}
+                              </div>
+                              <div>
+                                <span className="font-medium">Submitted:</span> {case_.submissionDate}
+                              </div>
+                              <div>
+                                <span className="font-medium">Claim:</span> {case_.claimAmount}
+                              </div>
+                              <div>
+                                <span className="font-medium">Injury Type:</span> {case_.injuryType}
+                              </div>
+                              <div>
+                                <span className="font-medium">Doctor:</span> {case_.doctorAssigned}
+                              </div>
+                              <div>
+                                <span className="font-medium">Documents:</span> {case_.documentsCount}
+                              </div>
+                              <div>
+                                <span className="font-medium">Evaluation:</span> {case_.evaluationStatus}
+                              </div>
                             </div>
                           </div>
-                          <div>
-                            <span className="font-medium text-gray-600">Disability:</span>
-                            <div className={`font-semibold ${
-                              evaluation.disability === "Yes" ? "text-green-600" : "text-red-600"
-                            }`}>
-                              {evaluation.disability}
-                            </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigate(`/case/${case_.id}`)}
+                              className="flex items-center space-x-1"
+                            >
+                              <Eye className="h-4 w-4" />
+                              <span>View Case</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedCase(case_.id)}
+                              className="flex items-center space-x-1"
+                            >
+                              <Upload className="h-4 w-4" />
+                              <span>Upload Docs</span>
+                            </Button>
                           </div>
-                          <div>
-                            <span className="font-medium text-gray-600">Disability Grade:</span>
-                            <div className="font-semibold">{evaluation.disabilityGrade}</div>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-600">Evaluation Date:</span>
-                            <div>{evaluation.evaluationDate}</div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                          <div className="flex space-x-4 text-sm">
-                            <div>
-                              <span className="text-gray-600">Claim Amount: </span>
-                              <span className="font-semibold">{evaluation.claimAmount}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">AI Recommended: </span>
-                              <span className="font-semibold text-blue-600">{evaluation.recommendedPayout}</span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedCase(evaluation.caseId)}
-                            className="flex items-center space-x-1"
-                          >
-                            <Eye className="h-4 w-4" />
-                            <span>View Details</span>
-                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -250,74 +274,78 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="activity" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Doctor Activity Logs</CardTitle>
-                <CardDescription>
-                  Track doctor interactions with cases and documents
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search activity logs..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                
-                <ScrollArea className="h-96">
-                  <div className="space-y-3">
-                    {activityLogs.map((log) => (
-                      <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span className="font-medium">{log.doctor}</span>
-                            <span className="text-gray-600">{log.action}</span>
+          <TabsContent value="upload" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Upload Documents</h2>
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Select Case</CardTitle>
+                      <CardDescription>Choose a case to upload documents for</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {cases.map((case_) => (
+                          <div
+                            key={case_.id}
+                            className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                              selectedCase === case_.id 
+                                ? 'border-blue-500 bg-blue-50' 
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                            onClick={() => setSelectedCase(case_.id)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">{case_.patientName}</p>
+                                <p className="text-sm text-gray-600">Case {case_.id}</p>
+                              </div>
+                              <Badge className={getStatusColor(case_.status)}>
+                                {case_.status.replace("-", " ")}
+                              </Badge>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500 ml-5">
-                            {log.document} • {log.duration}
-                          </div>
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {log.timestamp}
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+              
+              <div>
+                {selectedCase ? (
+                  <DocumentUpload 
+                    caseId={selectedCase}
+                    onDocumentUploaded={() => {
+                      console.log("Document uploaded for case:", selectedCase);
+                    }}
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="p-12 text-center">
+                      <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p className="text-gray-600">Select a case to begin uploading documents</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
           </TabsContent>
 
-          <TabsContent value="payout" className="space-y-4">
-            {selectedCase ? (
-              <AIPayoutRecommendation caseId={selectedCase} />
-            ) : (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Select a Case for Payout Analysis
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    Choose a case from the Evaluations tab to see AI-powered payout recommendations
-                  </p>
-                  <Button 
-                    variant="outline"
-                    onClick={() => setSelectedCase("C001")}
-                  >
-                    View Sample Analysis
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+          <TabsContent value="analytics">
+            <Card>
+              <CardHeader>
+                <CardTitle>Analytics Dashboard</CardTitle>
+                <CardDescription>Track case progress and doctor performance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-gray-600">Analytics dashboard coming soon</p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
