@@ -1,9 +1,8 @@
 
 import { ChatMessage } from '../types';
+import { dataService } from './dataService';
 
 class ChatService {
-  private messages: ChatMessage[] = [];
-
   sendMessage(caseId: string, senderId: string, senderName: string, senderRole: 'admin' | 'doctor' | 'system-admin', message: string, recipientRole?: 'admin' | 'doctor' | 'system-admin'): ChatMessage {
     const chatMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -16,12 +15,12 @@ class ChatService {
       isRead: false,
       recipientRole
     };
-    this.messages.push(chatMessage);
+    dataService.addChatMessage(chatMessage);
     return chatMessage;
   }
 
   getMessagesForCase(caseId: string, userRole?: 'admin' | 'doctor' | 'system-admin'): ChatMessage[] {
-    return this.messages
+    return dataService.getChatMessages()
       .filter(msg => {
         if (msg.caseId !== caseId) return false;
         
@@ -38,14 +37,16 @@ class ChatService {
   }
 
   markAsRead(messageId: string): void {
-    const message = this.messages.find(msg => msg.id === messageId);
+    const messages = dataService.getChatMessages();
+    const message = messages.find(msg => msg.id === messageId);
     if (message) {
       message.isRead = true;
+      dataService.updateChatMessage(message);
     }
   }
 
   getUnreadCount(userId: string, userRole: 'admin' | 'doctor' | 'system-admin'): number {
-    return this.messages.filter(msg => 
+    return dataService.getChatMessages().filter(msg => 
       !msg.isRead && 
       msg.senderId !== userId &&
       (msg.recipientRole === userRole || !msg.recipientRole)
@@ -53,7 +54,7 @@ class ChatService {
   }
 
   getUnreadCountForCase(caseId: string, userId: string, userRole: 'admin' | 'doctor' | 'system-admin'): number {
-    return this.messages.filter(msg => 
+    return dataService.getChatMessages().filter(msg => 
       msg.caseId === caseId &&
       !msg.isRead && 
       msg.senderId !== userId &&

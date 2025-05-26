@@ -30,27 +30,45 @@ const DoctorDashboard = () => {
     setCurrentUser(user);
     loadAssignedCases(user);
     updateUnreadChatCount(user);
+
+    // Set up periodic refresh to ensure data persistence
+    const interval = setInterval(() => {
+      loadAssignedCases(user);
+      updateUnreadChatCount(user);
+    }, 10000); // Refresh every 10 seconds
+
+    return () => clearInterval(interval);
   }, [navigate]);
 
   const loadAssignedCases = (user: UserType) => {
-    // Load cases assigned specifically to this doctor
-    const doctorCases = authService.getCasesForDoctor(user.id);
-    setAssignedCases(doctorCases);
-    
-    // Log activity
-    authService.logActivity(
-      user.id,
-      user.name,
-      user.role,
-      'VIEW_DASHBOARD',
-      undefined,
-      undefined,
-      'Accessed doctor dashboard'
-    );
+    try {
+      // Load cases assigned specifically to this doctor
+      const doctorCases = authService.getCasesForDoctor(user.id);
+      setAssignedCases(doctorCases);
+      
+      // Log activity
+      authService.logActivity(
+        user.id,
+        user.name,
+        user.role,
+        'VIEW_DASHBOARD',
+        undefined,
+        undefined,
+        'Accessed doctor dashboard'
+      );
+    } catch (error) {
+      console.error('Error loading assigned cases:', error);
+      setAssignedCases([]);
+    }
   };
 
   const updateUnreadChatCount = (user: UserType) => {
-    setUnreadChatCount(chatService.getUnreadCount(user.id, 'doctor'));
+    try {
+      setUnreadChatCount(chatService.getUnreadCount(user.id, 'doctor'));
+    } catch (error) {
+      console.error('Error updating unread chat count:', error);
+      setUnreadChatCount(0);
+    }
   };
 
   const handleOpenCase = (caseId: string) => {

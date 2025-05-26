@@ -1,34 +1,13 @@
 
 import { User, ActivityLog, PatientCase } from '../types';
+import { dataService } from './dataService';
 
 class AuthService {
   private currentUser: User | null = null;
-  private users: User[] = [
-    {
-      id: '1',
-      email: 'admin@insurance.com',
-      name: 'John Administrator',
-      role: 'admin',
-      createdAt: '2024-01-01',
-      isActive: true,
-      password: 'password'
-    },
-    {
-      id: '2',
-      email: 'sysadmin@insurance.com',
-      name: 'System Administrator',
-      role: 'system-admin',
-      createdAt: '2024-01-01',
-      isActive: true,
-      password: 'password'
-    }
-  ];
-
-  private activityLogs: ActivityLog[] = [];
-  private cases: PatientCase[] = [];
 
   login(email: string, password: string): User | null {
-    const user = this.users.find(u => u.email === email && u.password === password && u.isActive);
+    const users = dataService.getUsers();
+    const user = users.find(u => u.email === email && u.password === password && u.isActive);
     if (user) {
       this.currentUser = { ...user, lastLogin: new Date().toISOString() };
       this.logActivity(user.id, user.name, user.role, 'LOGIN', undefined, undefined, 'User logged in');
@@ -50,15 +29,15 @@ class AuthService {
   }
 
   getAllUsers(): User[] {
-    return this.users;
+    return dataService.getUsers();
   }
 
   getDoctors(): User[] {
-    return this.users.filter(u => u.role === 'doctor' && u.isActive);
+    return dataService.getUsers().filter(u => u.role === 'doctor' && u.isActive);
   }
 
   getAdmins(): User[] {
-    return this.users.filter(u => u.role === 'admin' && u.isActive);
+    return dataService.getUsers().filter(u => u.role === 'admin' && u.isActive);
   }
 
   createUser(userData: Omit<User, 'id' | 'createdAt'> & { password: string }): User {
@@ -67,7 +46,7 @@ class AuthService {
       id: Date.now().toString(),
       createdAt: new Date().toISOString()
     };
-    this.users.push(newUser);
+    dataService.addUser(newUser);
     
     if (this.currentUser) {
       this.logActivity(
@@ -85,16 +64,15 @@ class AuthService {
   }
 
   updateUser(userData: User): void {
-    const index = this.users.findIndex(u => u.id === userData.id);
-    if (index !== -1) {
-      this.users[index] = userData;
-    }
+    dataService.updateUser(userData);
   }
 
   deactivateUser(userId: string): void {
-    const user = this.users.find(u => u.id === userId);
+    const users = dataService.getUsers();
+    const user = users.find(u => u.id === userId);
     if (user) {
       user.isActive = false;
+      dataService.updateUser(user);
       if (this.currentUser) {
         this.logActivity(
           this.currentUser.id, 
@@ -111,36 +89,36 @@ class AuthService {
 
   // Case management methods
   getAllCases(): PatientCase[] {
-    return this.cases;
+    return dataService.getCases();
   }
 
   getCasesForDoctor(doctorId: string): PatientCase[] {
-    return this.cases.filter(case_ => case_.doctorId === doctorId);
+    return dataService.getCases().filter(case_ => case_.doctorId === doctorId);
   }
 
   addCase(case_: PatientCase): void {
-    this.cases.push(case_);
+    dataService.addCase(case_);
   }
 
   updateCase(updatedCase: PatientCase): void {
-    const index = this.cases.findIndex(case_ => case_.id === updatedCase.id);
-    if (index !== -1) {
-      this.cases[index] = updatedCase;
-    }
+    dataService.updateCase(updatedCase);
   }
 
   deleteCase(caseId: string): void {
-    this.cases = this.cases.filter(case_ => case_.id !== caseId);
+    dataService.deleteCase(caseId);
   }
 
   assignCaseToDoctor(caseId: string, doctorId: string): void {
-    const case_ = this.cases.find(c => c.id === caseId);
-    const doctor = this.users.find(u => u.id === doctorId && u.role === 'doctor');
+    const cases = dataService.getCases();
+    const users = dataService.getUsers();
+    const case_ = cases.find(c => c.id === caseId);
+    const doctor = users.find(u => u.id === doctorId && u.role === 'doctor');
     
     if (case_ && doctor) {
       case_.doctorId = doctor.id;
       case_.doctorAssigned = doctor.name;
       case_.lastUpdated = new Date().toISOString();
+      dataService.updateCase(case_);
       
       if (this.currentUser) {
         this.logActivity(
@@ -167,17 +145,18 @@ class AuthService {
       caseName,
       timestamp: new Date().toISOString(),
       details: details || '',
-      ipAddress: '127.0.0.1' // In real app, get actual IP
+      ipAddress: '127.0.0.1'
     };
-    this.activityLogs.push(log);
+    dataService.addActivityLog(log);
   }
 
   getActivityLogs(): ActivityLog[] {
-    return this.activityLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return dataService.getActivityLogs().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   getUserActivityLogs(userId: string): ActivityLog[] {
-    return this.activityLogs.filter(log => log.userId === userId)
+    return dataService.getActivityLogs()
+      .filter(log => log.userId === userId)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 }
