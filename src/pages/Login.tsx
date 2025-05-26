@@ -6,15 +6,57 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Stethoscope, Shield } from "lucide-react";
+import { Stethoscope, Shield, Settings } from "lucide-react";
+import { authService } from "@/services/authService";
+import { toast } from "sonner";
 
 const Login = () => {
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (userType: "doctor" | "admin") => {
-    // Simulate login
-    navigate(userType === "doctor" ? "/doctor" : "/admin");
+  const handleLogin = async (expectedRole?: string) => {
+    if (!credentials.email || !credentials.password) {
+      toast.error("Please enter both email and password");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    // Simulate login delay
+    setTimeout(() => {
+      const user = authService.login(credentials.email, credentials.password);
+      
+      if (user) {
+        if (expectedRole && user.role !== expectedRole) {
+          toast.error(`Invalid credentials for ${expectedRole} login`);
+          authService.logout();
+          setIsLoading(false);
+          return;
+        }
+
+        toast.success(`Welcome back, ${user.name}!`);
+        
+        // Navigate based on role
+        switch (user.role) {
+          case 'doctor':
+            navigate("/doctor");
+            break;
+          case 'admin':
+            navigate("/admin");
+            break;
+          case 'system-admin':
+            navigate("/system-admin");
+            break;
+          default:
+            navigate("/");
+        }
+      } else {
+        toast.error("Invalid email or password");
+      }
+      
+      setIsLoading(false);
+    }, 1000);
   };
 
   return (
@@ -30,14 +72,18 @@ const Login = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="doctor" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="doctor" className="flex items-center gap-2">
-                <Stethoscope size={16} />
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="doctor" className="flex items-center gap-2 text-xs">
+                <Stethoscope size={14} />
                 Doctor
               </TabsTrigger>
-              <TabsTrigger value="admin" className="flex items-center gap-2">
-                <Shield size={16} />
+              <TabsTrigger value="admin" className="flex items-center gap-2 text-xs">
+                <Shield size={14} />
                 Admin
+              </TabsTrigger>
+              <TabsTrigger value="system-admin" className="flex items-center gap-2 text-xs">
+                <Settings size={14} />
+                System
               </TabsTrigger>
             </TabsList>
             
@@ -64,8 +110,9 @@ const Login = () => {
               <Button 
                 className="w-full bg-blue-600 hover:bg-blue-700" 
                 onClick={() => handleLogin("doctor")}
+                disabled={isLoading}
               >
-                Login as Doctor
+                {isLoading ? "Logging in..." : "Login as Doctor"}
               </Button>
             </TabsContent>
             
@@ -92,11 +139,47 @@ const Login = () => {
               <Button 
                 className="w-full bg-green-600 hover:bg-green-700" 
                 onClick={() => handleLogin("admin")}
+                disabled={isLoading}
               >
-                Login as Administrator
+                {isLoading ? "Logging in..." : "Login as Administrator"}
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="system-admin" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="sysadmin-email">Email</Label>
+                <Input
+                  id="sysadmin-email"
+                  type="email"
+                  placeholder="sysadmin@insurance.com"
+                  value={credentials.email}
+                  onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sysadmin-password">Password</Label>
+                <Input
+                  id="sysadmin-password"
+                  type="password"
+                  value={credentials.password}
+                  onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                />
+              </div>
+              <Button 
+                className="w-full bg-purple-600 hover:bg-purple-700" 
+                onClick={() => handleLogin("system-admin")}
+                disabled={isLoading}
+              >
+                {isLoading ? "Logging in..." : "Login as System Admin"}
               </Button>
             </TabsContent>
           </Tabs>
+
+          <div className="mt-4 text-xs text-gray-600 space-y-1">
+            <p><strong>Demo Credentials:</strong></p>
+            <p>Admin: admin@insurance.com / password</p>
+            <p>System: sysadmin@insurance.com / password</p>
+          </div>
         </CardContent>
       </Card>
     </div>

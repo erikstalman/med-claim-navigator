@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,26 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-
-interface PatientCase {
-  id: string;
-  patientName: string;
-  accidentDate: string;
-  submissionDate: string;
-  status: string;
-  priority: string;
-  injuryType: string;
-  doctorAssigned: string;
-  claimAmount: string;
-  documentsCount: number;
-  evaluationStatus: string;
-  patientAge?: number;
-  patientGender?: string;
-  contactNumber?: string;
-  email?: string;
-  address?: string;
-  description?: string;
-}
+import { authService } from "@/services/authService";
+import { PatientCase } from "@/types";
 
 interface PatientInfoEditorProps {
   isOpen: boolean;
@@ -47,14 +29,41 @@ const PatientInfoEditor = ({ isOpen, onClose, case_, onSave, isNew = false }: Pa
       priority: "medium",
       injuryType: "",
       doctorAssigned: "",
+      doctorId: "",
+      adminAssigned: "",
+      adminId: "",
       claimAmount: "",
       documentsCount: 0,
-      evaluationStatus: "not-started"
+      evaluationStatus: "not-started",
+      lastUpdated: new Date().toISOString(),
+      createdBy: ""
     }
   );
 
+  const [doctors, setDoctors] = useState(authService.getDoctors());
+  const [admins, setAdmins] = useState(authService.getAdmins());
+
+  useEffect(() => {
+    // Refresh doctors and admins list when dialog opens
+    if (isOpen) {
+      setDoctors(authService.getDoctors());
+      setAdmins(authService.getAdmins());
+    }
+  }, [isOpen]);
+
   const handleInputChange = (field: keyof PatientCase, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleDoctorChange = (doctorId: string) => {
+    const doctor = doctors.find(d => d.id === doctorId);
+    if (doctor) {
+      setFormData(prev => ({
+        ...prev,
+        doctorId: doctor.id,
+        doctorAssigned: doctor.name
+      }));
+    }
   };
 
   const handleSave = () => {
@@ -63,17 +72,18 @@ const PatientInfoEditor = ({ isOpen, onClose, case_, onSave, isNew = false }: Pa
       return;
     }
 
+    // Set admin info from current user if creating new case
+    const currentUser = authService.getCurrentUser();
+    if (isNew && currentUser && currentUser.role === 'admin') {
+      formData.adminId = currentUser.id;
+      formData.adminAssigned = currentUser.name;
+      formData.createdBy = currentUser.id;
+    }
+
     onSave(formData);
     onClose();
     toast.success(isNew ? "New case created successfully" : "Case updated successfully");
   };
-
-  const doctors = [
-    "Dr. Michael Smith",
-    "Dr. Emily Davis", 
-    "Dr. Sarah Johnson",
-    "Dr. Robert Wilson"
-  ];
 
   const injuryTypes = [
     "Motor Vehicle Accident",
@@ -151,13 +161,15 @@ const PatientInfoEditor = ({ isOpen, onClose, case_, onSave, isNew = false }: Pa
 
           <div className="space-y-2">
             <Label htmlFor="doctorAssigned">Assigned Doctor</Label>
-            <Select value={formData.doctorAssigned} onValueChange={(value) => handleInputChange("doctorAssigned", value)}>
+            <Select value={formData.doctorId} onValueChange={handleDoctorChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select doctor" />
               </SelectTrigger>
               <SelectContent>
                 {doctors.map((doctor) => (
-                  <SelectItem key={doctor} value={doctor}>{doctor}</SelectItem>
+                  <SelectItem key={doctor.id} value={doctor.id}>
+                    {doctor.name} {doctor.specialization ? `(${doctor.specialization})` : ''}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

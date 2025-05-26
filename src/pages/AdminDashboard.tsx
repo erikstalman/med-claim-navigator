@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { 
   Search, 
   Filter, 
@@ -13,192 +14,225 @@ import {
   BarChart3,
   TrendingUp,
   AlertCircle,
-  Plus
+  Plus,
+  MessageSquare,
+  Users,
+  Activity
 } from "lucide-react";
 import DocumentUpload from "@/components/DocumentUpload";
 import PatientInfoEditor from "@/components/PatientInfoEditor";
 import CaseManager from "@/components/CaseManager";
 import DocumentManager from "@/components/DocumentManager";
-
-interface PatientCase {
-  id: string;
-  patientName: string;
-  accidentDate: string;
-  submissionDate: string;
-  status: string;
-  priority: string;
-  injuryType: string;
-  doctorAssigned: string;
-  claimAmount: string;
-  documentsCount: number;
-  evaluationStatus: string;
-}
-
-interface Document {
-  id: string;
-  name: string;
-  type: string;
-  uploadDate: string;
-  uploadedBy: string;
-  size: string;
-  pages: number;
-  category: string;
-  caseId: string;
-}
+import UserManagement from "@/components/UserManagement";
+import ChatPanel from "@/components/ChatPanel";
+import { authService } from "@/services/authService";
+import { chatService } from "@/services/chatService";
+import { PatientCase, Document, User, ActivityLog } from "@/types";
+import { toast } from "sonner";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
   const [isCreatingCase, setIsCreatingCase] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [activeChatCase, setActiveChatCase] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
-  // Real state management for cases
-  const [cases, setCases] = useState<PatientCase[]>([
-    {
-      id: "C001",
-      patientName: "John Anderson",
-      accidentDate: "2024-01-15",
-      submissionDate: "2024-01-20",
-      status: "pending-evaluation",
-      priority: "high",
-      injuryType: "Motor Vehicle Accident",
-      doctorAssigned: "Dr. Michael Smith",
-      claimAmount: "$45,000",
-      documentsCount: 3,
-      evaluationStatus: "not-started"
-    },
-    {
-      id: "C002",
-      patientName: "Sarah Johnson",
-      accidentDate: "2024-01-18",
-      submissionDate: "2024-01-22",
-      status: "under-review",
-      priority: "medium",
-      injuryType: "Workplace Injury",
-      doctorAssigned: "Dr. Emily Davis",
-      claimAmount: "$28,000",
-      documentsCount: 2,
-      evaluationStatus: "in-progress"
-    },
-    {
-      id: "C003",
-      patientName: "Robert Wilson",
-      accidentDate: "2024-01-10",
-      submissionDate: "2024-01-25",
-      status: "completed",
-      priority: "low",
-      injuryType: "Slip and Fall",
-      doctorAssigned: "Dr. Michael Smith",
-      claimAmount: "$15,000",
-      documentsCount: 4,
-      evaluationStatus: "completed"
-    }
-  ]);
+  // Real state management with proper data structure
+  const [cases, setCases] = useState<PatientCase[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
 
-  // Real state management for documents
-  const [documents, setDocuments] = useState<Document[]>([
-    {
-      id: "DOC001",
-      name: "Medical Records - Emergency Room",
-      type: "Medical Report",
-      uploadDate: "2024-01-20",
-      uploadedBy: "Dr. Michael Smith",
-      size: "2.3 MB",
-      pages: 15,
-      category: "medical",
-      caseId: "C001"
-    },
-    {
-      id: "DOC002",
-      name: "X-Ray Results",
-      type: "Diagnostic Image",
-      uploadDate: "2024-01-20",
-      uploadedBy: "Radiology Dept",
-      size: "12.1 MB",
-      pages: 8,
-      category: "imaging",
-      caseId: "C001"
-    },
-    {
-      id: "DOC003",
-      name: "Police Report",
-      type: "Legal Document",
-      uploadDate: "2024-01-18",
-      uploadedBy: "SFPD Officer Johnson",
-      size: "1.8 MB",
-      pages: 6,
-      category: "legal",
-      caseId: "C001"
-    },
-    {
-      id: "DOC004",
-      name: "MRI Scan Results",
-      type: "Diagnostic Image",
-      uploadDate: "2024-01-22",
-      uploadedBy: "Imaging Center",
-      size: "45.2 MB",
-      pages: 12,
-      category: "imaging",
-      caseId: "C002"
-    },
-    {
-      id: "DOC005",
-      name: "Physical Therapy Assessment",
-      type: "Treatment Report",
-      uploadDate: "2024-01-25",
-      uploadedBy: "PT Clinic",
-      size: "3.1 MB",
-      pages: 10,
-      category: "treatment",
-      caseId: "C002"
+  useEffect(() => {
+    const user = authService.getCurrentUser();
+    if (!user || user.role !== 'admin') {
+      navigate('/');
+      return;
     }
-  ]);
+    setCurrentUser(user);
+    loadInitialData();
+    updateUnreadChatCount();
+  }, [navigate]);
+
+  const loadInitialData = () => {
+    // Load activity logs
+    setActivityLogs(authService.getActivityLogs());
+  };
+
+  const updateUnreadChatCount = () => {
+    const user = authService.getCurrentUser();
+    if (user) {
+      setUnreadChatCount(chatService.getUnreadCount(user.id, 'admin'));
+    }
+  };
 
   const handleCaseUpdate = (updatedCase: PatientCase) => {
     setCases(prev => 
       prev.map(case_ => 
         case_.id === updatedCase.id ? {
           ...updatedCase,
-          documentsCount: documents.filter(doc => doc.caseId === updatedCase.id).length
+          documentsCount: documents.filter(doc => doc.caseId === updatedCase.id).length,
+          lastUpdated: new Date().toISOString()
         } : case_
       )
     );
+
+    // Log activity
+    if (currentUser) {
+      authService.logActivity(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        'UPDATE_CASE',
+        updatedCase.id,
+        updatedCase.patientName,
+        'Case updated'
+      );
+      setActivityLogs(authService.getActivityLogs());
+    }
+
+    toast.success("Case updated successfully");
   };
 
   const handleCaseDelete = (caseId: string) => {
+    const caseToDelete = cases.find(c => c.id === caseId);
     setCases(prev => prev.filter(case_ => case_.id !== caseId));
     setDocuments(prev => prev.filter(doc => doc.caseId !== caseId));
+
+    // Log activity
+    if (currentUser && caseToDelete) {
+      authService.logActivity(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        'DELETE_CASE',
+        caseId,
+        caseToDelete.patientName,
+        'Case deleted with all associated documents'
+      );
+      setActivityLogs(authService.getActivityLogs());
+    }
+
+    toast.success("Case and all associated documents deleted successfully");
   };
 
   const handleCreateCase = (newCase: PatientCase) => {
-    setCases(prev => [...prev, newCase]);
+    const caseWithMetadata: PatientCase = {
+      ...newCase,
+      documentsCount: 0,
+      lastUpdated: new Date().toISOString(),
+      createdBy: currentUser?.id || '',
+      adminId: currentUser?.id || '',
+      adminAssigned: currentUser?.name || ''
+    };
+    
+    setCases(prev => [...prev, caseWithMetadata]);
+
+    // Log activity
+    if (currentUser) {
+      authService.logActivity(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        'CREATE_CASE',
+        newCase.id,
+        newCase.patientName,
+        'New case created'
+      );
+      setActivityLogs(authService.getActivityLogs());
+    }
+
+    toast.success("New case created successfully");
   };
 
   const handleDocumentUploaded = (newDocument: Document) => {
-    setDocuments(prev => [...prev, newDocument]);
+    const documentWithMetadata: Document = {
+      ...newDocument,
+      uploadedById: currentUser?.id || '',
+      uploadedBy: currentUser?.name || ''
+    };
+    
+    setDocuments(prev => [...prev, documentWithMetadata]);
+    
     // Update case document count
     setCases(prev => 
       prev.map(case_ => 
         case_.id === newDocument.caseId 
-          ? { ...case_, documentsCount: case_.documentsCount + 1 }
+          ? { 
+              ...case_, 
+              documentsCount: case_.documentsCount + 1,
+              lastUpdated: new Date().toISOString()
+            }
           : case_
       )
     );
+
+    // Log activity
+    if (currentUser) {
+      const relatedCase = cases.find(c => c.id === newDocument.caseId);
+      authService.logActivity(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        'UPLOAD_DOCUMENT',
+        newDocument.caseId,
+        relatedCase?.patientName,
+        `Uploaded document: ${newDocument.name}`
+      );
+      setActivityLogs(authService.getActivityLogs());
+    }
+
+    toast.success("Document uploaded successfully");
   };
 
   const handleDocumentDeleted = (documentId: string) => {
     const doc = documents.find(d => d.id === documentId);
     if (doc) {
       setDocuments(prev => prev.filter(d => d.id !== documentId));
+      
       // Update case document count
       setCases(prev => 
         prev.map(case_ => 
           case_.id === doc.caseId 
-            ? { ...case_, documentsCount: Math.max(0, case_.documentsCount - 1) }
+            ? { 
+                ...case_, 
+                documentsCount: Math.max(0, case_.documentsCount - 1),
+                lastUpdated: new Date().toISOString()
+              }
             : case_
         )
       );
+
+      // Log activity
+      if (currentUser) {
+        const relatedCase = cases.find(c => c.id === doc.caseId);
+        authService.logActivity(
+          currentUser.id,
+          currentUser.name,
+          currentUser.role,
+          'DELETE_DOCUMENT',
+          doc.caseId,
+          relatedCase?.patientName,
+          `Deleted document: ${doc.name}`
+        );
+        setActivityLogs(authService.getActivityLogs());
+      }
+
+      toast.success("Document deleted successfully");
     }
+  };
+
+  const handleOpenChat = (caseId: string) => {
+    setActiveChatCase(caseId);
+    setIsChatOpen(true);
+    updateUnreadChatCount();
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    navigate('/');
   };
 
   const filteredCases = cases.filter(case_ =>
@@ -212,6 +246,10 @@ const AdminDashboard = () => {
   const completedCases = cases.filter(c => c.status === "completed").length;
   const highPriorityCases = cases.filter(c => c.priority === "high").length;
 
+  if (!currentUser) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -222,10 +260,23 @@ const AdminDashboard = () => {
             <p className="text-gray-600">Healthcare Claims Management Platform</p>
           </div>
           <div className="flex items-center space-x-4">
-            <Button 
+            <Button
               variant="outline"
-              onClick={() => navigate("/")}
+              onClick={() => setIsChatOpen(true)}
+              className="relative"
             >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Chat
+              {unreadChatCount > 0 && (
+                <Badge className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5">
+                  {unreadChatCount}
+                </Badge>
+              )}
+            </Button>
+            <div className="text-sm text-gray-600">
+              Welcome, {currentUser.name}
+            </div>
+            <Button variant="outline" onClick={handleLogout}>
               Logout
             </Button>
           </div>
@@ -246,6 +297,14 @@ const AdminDashboard = () => {
             <TabsTrigger value="documents" className="flex items-center space-x-2">
               <FileText className="h-4 w-4" />
               <span>Document Management</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center space-x-2">
+              <Users className="h-4 w-4" />
+              <span>User Management</span>
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex items-center space-x-2">
+              <Activity className="h-4 w-4" />
+              <span>Activity Log</span>
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
@@ -336,20 +395,30 @@ const AdminDashboard = () => {
                 {/* Cases List */}
                 <div className="space-y-4">
                   {filteredCases.map((case_) => (
-                    <CaseManager
-                      key={case_.id}
-                      case_={case_}
-                      onUpdate={handleCaseUpdate}
-                      onDelete={handleCaseDelete}
-                      onSelectForUpload={setSelectedCase}
-                    />
+                    <div key={case_.id} className="relative">
+                      <CaseManager
+                        case_={case_}
+                        onUpdate={handleCaseUpdate}
+                        onDelete={handleCaseDelete}
+                        onSelectForUpload={setSelectedCase}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenChat(case_.id)}
+                        className="absolute top-4 right-4 flex items-center space-x-1"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        <span>Chat</span>
+                      </Button>
+                    </div>
                   ))}
                 </div>
 
                 {filteredCases.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>No cases found matching your search.</p>
+                    <p>No cases found. Create your first case to get started.</p>
                   </div>
                 )}
               </CardContent>
@@ -423,6 +492,48 @@ const AdminDashboard = () => {
             </div>
           </TabsContent>
 
+          <TabsContent value="users" className="space-y-6">
+            <UserManagement />
+          </TabsContent>
+
+          <TabsContent value="activity" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Activity className="h-5 w-5" />
+                  <span>Activity Log</span>
+                </CardTitle>
+                <CardDescription>Track all user activities for compliance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {activityLogs.slice(0, 50).map((log) => (
+                    <Card key={log.id} className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-1">
+                            <Badge className="text-xs">
+                              {log.userRole}
+                            </Badge>
+                            <span className="font-medium">{log.userName}</span>
+                            <span className="text-sm text-gray-600">{log.action}</span>
+                          </div>
+                          <p className="text-sm text-gray-600">{log.details}</p>
+                          {log.caseId && (
+                            <p className="text-xs text-gray-500">Case: {log.caseId} - {log.caseName}</p>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="analytics">
             <Card>
               <CardHeader>
@@ -447,6 +558,18 @@ const AdminDashboard = () => {
         onSave={handleCreateCase}
         isNew={true}
       />
+
+      {activeChatCase && (
+        <ChatPanel
+          caseId={activeChatCase}
+          isOpen={isChatOpen}
+          onClose={() => {
+            setIsChatOpen(false);
+            setActiveChatCase(null);
+            updateUnreadChatCount();
+          }}
+        />
+      )}
     </div>
   );
 };

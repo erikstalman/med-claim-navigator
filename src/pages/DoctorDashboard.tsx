@@ -1,67 +1,92 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, FileText, Clock, CheckCircle, AlertCircle, LogOut, User } from "lucide-react";
+import { Search, FileText, Clock, CheckCircle, AlertCircle, LogOut, User, MessageSquare } from "lucide-react";
+import ChatPanel from "@/components/ChatPanel";
+import { authService } from "@/services/authService";
+import { chatService } from "@/services/chatService";
+import { PatientCase, User as UserType } from "@/types";
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const [assignedCases, setAssignedCases] = useState<PatientCase[]>([]);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [activeChatCase, setActiveChatCase] = useState<string | null>(null);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
-  // Mock data for cases
-  const cases = [
-    {
-      id: "C001",
-      patientName: "John Anderson",
-      accidentDate: "2024-01-15",
-      submissionDate: "2024-01-20",
-      status: "pending",
-      priority: "high",
-      injuryType: "Motor Vehicle Accident",
-      documentCount: 12
-    },
-    {
-      id: "C002",
-      patientName: "Sarah Johnson",
-      accidentDate: "2024-01-10",
-      submissionDate: "2024-01-18",
-      status: "in-review",
-      priority: "medium",
-      injuryType: "Workplace Injury",
-      documentCount: 8
-    },
-    {
-      id: "C003",
-      patientName: "Michael Brown",
-      accidentDate: "2024-01-05",
-      submissionDate: "2024-01-12",
-      status: "completed",
-      priority: "low",
-      injuryType: "Slip and Fall",
-      documentCount: 15
-    },
-    {
-      id: "C004",
-      patientName: "Emily Davis",
-      accidentDate: "2024-01-22",
-      submissionDate: "2024-01-25",
-      status: "pending",
-      priority: "high",
-      injuryType: "Sports Injury",
-      documentCount: 6
+  useEffect(() => {
+    const user = authService.getCurrentUser();
+    if (!user || user.role !== 'doctor') {
+      navigate('/');
+      return;
     }
-  ];
+    setCurrentUser(user);
+    loadAssignedCases(user);
+    updateUnreadChatCount(user);
+  }, [navigate]);
+
+  const loadAssignedCases = (user: UserType) => {
+    // In a real app, this would fetch from an API
+    // For now, return empty array since we're starting fresh
+    setAssignedCases([]);
+    
+    // Log activity
+    authService.logActivity(
+      user.id,
+      user.name,
+      user.role,
+      'VIEW_DASHBOARD',
+      undefined,
+      undefined,
+      'Accessed doctor dashboard'
+    );
+  };
+
+  const updateUnreadChatCount = (user: UserType) => {
+    setUnreadChatCount(chatService.getUnreadCount(user.id, 'doctor'));
+  };
+
+  const handleOpenCase = (caseId: string) => {
+    if (currentUser) {
+      const selectedCase = assignedCases.find(c => c.id === caseId);
+      authService.logActivity(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        'OPEN_CASE',
+        caseId,
+        selectedCase?.patientName,
+        'Opened case for review'
+      );
+    }
+    navigate(`/case/${caseId}`);
+  };
+
+  const handleOpenChat = (caseId: string) => {
+    setActiveChatCase(caseId);
+    setIsChatOpen(true);
+    if (currentUser) {
+      updateUnreadChatCount(currentUser);
+    }
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    navigate('/');
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "pending": return <Clock className="h-4 w-4 text-yellow-500" />;
-      case "in-review": return <AlertCircle className="h-4 w-4 text-blue-500" />;
+      case "pending-evaluation": return <Clock className="h-4 w-4 text-yellow-500" />;
+      case "under-review": return <AlertCircle className="h-4 w-4 text-blue-500" />;
       case "completed": return <CheckCircle className="h-4 w-4 text-green-500" />;
       default: return null;
     }
@@ -69,8 +94,8 @@ const DoctorDashboard = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending": return "bg-yellow-100 text-yellow-800";
-      case "in-review": return "bg-blue-100 text-blue-800";
+      case "pending-evaluation": return "bg-yellow-100 text-yellow-800";
+      case "under-review": return "bg-blue-100 text-blue-800";
       case "completed": return "bg-green-100 text-green-800";
       default: return "bg-gray-100 text-gray-800";
     }
@@ -85,12 +110,22 @@ const DoctorDashboard = () => {
     }
   };
 
-  const filteredCases = cases.filter(caseItem => {
+  const filteredCases = assignedCases.filter(caseItem => {
     const matchesSearch = caseItem.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          caseItem.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || caseItem.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Calculate stats from assigned cases only
+  const pendingCases = assignedCases.filter(c => c.status === "pending-evaluation").length;
+  const inReviewCases = assignedCases.filter(c => c.status === "under-review").length;
+  const completedCases = assignedCases.filter(c => c.status === "completed").length;
+  const totalCases = assignedCases.length;
+
+  if (!currentUser) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -106,14 +141,32 @@ const DoctorDashboard = () => {
             </div>
           </div>
           <div className="flex items-center space-x-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsChatOpen(true)}
+              className="relative"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Chat
+              {unreadChatCount > 0 && (
+                <Badge className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5">
+                  {unreadChatCount}
+                </Badge>
+              )}
+            </Button>
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <User className="h-4 w-4" />
-              <span>Dr. Sarah Wilson</span>
+              <span>{currentUser.name}</span>
+              {currentUser.specialization && (
+                <Badge variant="outline" className="text-xs">
+                  {currentUser.specialization}
+                </Badge>
+              )}
             </div>
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => navigate("/")}
+              onClick={handleLogout}
               className="flex items-center space-x-2"
             >
               <LogOut className="h-4 w-4" />
@@ -128,18 +181,18 @@ const DoctorDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Pending Cases</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Pending Evaluation</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">2</div>
+              <div className="text-2xl font-bold text-yellow-600">{pendingCases}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">In Review</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Under Review</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">1</div>
+              <div className="text-2xl font-bold text-blue-600">{inReviewCases}</div>
             </CardContent>
           </Card>
           <Card>
@@ -147,15 +200,15 @@ const DoctorDashboard = () => {
               <CardTitle className="text-sm font-medium text-gray-600">Completed</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">1</div>
+              <div className="text-2xl font-bold text-green-600">{completedCases}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Cases</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Total Assigned</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">4</div>
+              <div className="text-2xl font-bold text-gray-900">{totalCases}</div>
             </CardContent>
           </Card>
         </div>
@@ -163,8 +216,8 @@ const DoctorDashboard = () => {
         {/* Filters and Search */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Case Management</CardTitle>
-            <CardDescription>Review and evaluate insurance claims</CardDescription>
+            <CardTitle>My Assigned Cases</CardTitle>
+            <CardDescription>Review and evaluate insurance claims assigned to you</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
@@ -183,8 +236,8 @@ const DoctorDashboard = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in-review">In Review</SelectItem>
+                  <SelectItem value="pending-evaluation">Pending Evaluation</SelectItem>
+                  <SelectItem value="under-review">Under Review</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
@@ -195,7 +248,7 @@ const DoctorDashboard = () => {
         {/* Cases List */}
         <div className="space-y-4">
           {filteredCases.map((caseItem) => (
-            <Card key={caseItem.id} className="hover:shadow-md transition-shadow cursor-pointer">
+            <Card key={caseItem.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -223,7 +276,7 @@ const DoctorDashboard = () => {
                       </div>
                       <div>
                         <span className="font-medium">Documents:</span>
-                        <div>{caseItem.documentCount} files</div>
+                        <div>{caseItem.documentsCount} files</div>
                       </div>
                     </div>
                   </div>
@@ -234,8 +287,17 @@ const DoctorDashboard = () => {
                     <Badge className={getPriorityColor(caseItem.priority)}>
                       {caseItem.priority}
                     </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenChat(caseItem.id)}
+                      className="flex items-center space-x-1"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      <span>Chat</span>
+                    </Button>
                     <Button 
-                      onClick={() => navigate(`/case/${caseItem.id}`)}
+                      onClick={() => handleOpenCase(caseItem.id)}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       Review Case
@@ -247,7 +309,19 @@ const DoctorDashboard = () => {
           ))}
         </div>
 
-        {filteredCases.length === 0 && (
+        {assignedCases.length === 0 && (
+          <Card>
+            <CardContent className="text-center py-12">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No cases assigned</h3>
+              <p className="text-gray-600">
+                You don't have any cases assigned yet. Contact your administrator to get cases assigned to you.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {filteredCases.length === 0 && assignedCases.length > 0 && (
           <Card>
             <CardContent className="text-center py-12">
               <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -257,6 +331,20 @@ const DoctorDashboard = () => {
           </Card>
         )}
       </div>
+
+      {activeChatCase && (
+        <ChatPanel
+          caseId={activeChatCase}
+          isOpen={isChatOpen}
+          onClose={() => {
+            setIsChatOpen(false);
+            setActiveChatCase(null);
+            if (currentUser) {
+              updateUnreadChatCount(currentUser);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
