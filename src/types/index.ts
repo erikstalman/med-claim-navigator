@@ -9,6 +9,7 @@ export interface User {
   isActive: boolean;
   specialization?: string; // for doctors
   licenseNumber?: string; // for doctors
+  password?: string; // for demo purposes
 }
 
 export interface ActivityLog {
@@ -29,10 +30,11 @@ export interface ChatMessage {
   caseId: string;
   senderId: string;
   senderName: string;
-  senderRole: 'admin' | 'doctor';
+  senderRole: 'admin' | 'doctor' | 'system-admin';
   message: string;
   timestamp: string;
   isRead: boolean;
+  recipientRole?: 'admin' | 'doctor' | 'system-admin';
 }
 
 export interface PatientCase {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -34,9 +33,9 @@ const DoctorDashboard = () => {
   }, [navigate]);
 
   const loadAssignedCases = (user: UserType) => {
-    // In a real app, this would fetch from an API
-    // For now, return empty array since we're starting fresh
-    setAssignedCases([]);
+    // Load cases assigned specifically to this doctor
+    const doctorCases = authService.getCasesForDoctor(user.id);
+    setAssignedCases(doctorCases);
     
     // Log activity
     authService.logActivity(
@@ -332,9 +331,9 @@ const DoctorDashboard = () => {
         )}
       </div>
 
-      {activeChatCase && (
+      {(activeChatCase || isChatOpen) && (
         <ChatPanel
-          caseId={activeChatCase}
+          caseId={activeChatCase || ''}
           isOpen={isChatOpen}
           onClose={() => {
             setIsChatOpen(false);

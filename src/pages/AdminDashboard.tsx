@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Search, 
   Filter, 
@@ -17,7 +18,8 @@ import {
   Plus,
   MessageSquare,
   Users,
-  Activity
+  Activity,
+  UserPlus
 } from "lucide-react";
 import DocumentUpload from "@/components/DocumentUpload";
 import PatientInfoEditor from "@/components/PatientInfoEditor";
@@ -57,7 +59,8 @@ const AdminDashboard = () => {
   }, [navigate]);
 
   const loadInitialData = () => {
-    // Load activity logs
+    // Load cases and activity logs from auth service
+    setCases(authService.getAllCases());
     setActivityLogs(authService.getActivityLogs());
   };
 
@@ -69,15 +72,8 @@ const AdminDashboard = () => {
   };
 
   const handleCaseUpdate = (updatedCase: PatientCase) => {
-    setCases(prev => 
-      prev.map(case_ => 
-        case_.id === updatedCase.id ? {
-          ...updatedCase,
-          documentsCount: documents.filter(doc => doc.caseId === updatedCase.id).length,
-          lastUpdated: new Date().toISOString()
-        } : case_
-      )
-    );
+    authService.updateCase(updatedCase);
+    setCases(authService.getAllCases());
 
     // Log activity
     if (currentUser) {
@@ -98,7 +94,8 @@ const AdminDashboard = () => {
 
   const handleCaseDelete = (caseId: string) => {
     const caseToDelete = cases.find(c => c.id === caseId);
-    setCases(prev => prev.filter(case_ => case_.id !== caseId));
+    authService.deleteCase(caseId);
+    setCases(authService.getAllCases());
     setDocuments(prev => prev.filter(doc => doc.caseId !== caseId));
 
     // Log activity
@@ -128,7 +125,8 @@ const AdminDashboard = () => {
       adminAssigned: currentUser?.name || ''
     };
     
-    setCases(prev => [...prev, caseWithMetadata]);
+    authService.addCase(caseWithMetadata);
+    setCases(authService.getAllCases());
 
     // Log activity
     if (currentUser) {
@@ -147,6 +145,13 @@ const AdminDashboard = () => {
     toast.success("New case created successfully");
   };
 
+  const handleAssignCase = (caseId: string, doctorId: string) => {
+    authService.assignCaseToDoctor(caseId, doctorId);
+    setCases(authService.getAllCases());
+    setActivityLogs(authService.getActivityLogs());
+    toast.success("Case assigned to doctor successfully");
+  };
+
   const handleDocumentUploaded = (newDocument: Document) => {
     const documentWithMetadata: Document = {
       ...newDocument,
@@ -157,17 +162,22 @@ const AdminDashboard = () => {
     setDocuments(prev => [...prev, documentWithMetadata]);
     
     // Update case document count
-    setCases(prev => 
-      prev.map(case_ => 
-        case_.id === newDocument.caseId 
-          ? { 
-              ...case_, 
-              documentsCount: case_.documentsCount + 1,
-              lastUpdated: new Date().toISOString()
-            }
-          : case_
-      )
+    const updatedCases = cases.map(case_ => 
+      case_.id === newDocument.caseId 
+        ? { 
+            ...case_, 
+            documentsCount: case_.documentsCount + 1,
+            lastUpdated: new Date().toISOString()
+          }
+        : case_
     );
+    setCases(updatedCases);
+    
+    // Update in auth service
+    const updatedCase = updatedCases.find(c => c.id === newDocument.caseId);
+    if (updatedCase) {
+      authService.updateCase(updatedCase);
+    }
 
     // Log activity
     if (currentUser) {
@@ -193,17 +203,22 @@ const AdminDashboard = () => {
       setDocuments(prev => prev.filter(d => d.id !== documentId));
       
       // Update case document count
-      setCases(prev => 
-        prev.map(case_ => 
-          case_.id === doc.caseId 
-            ? { 
-                ...case_, 
-                documentsCount: Math.max(0, case_.documentsCount - 1),
-                lastUpdated: new Date().toISOString()
-              }
-            : case_
-        )
+      const updatedCases = cases.map(case_ => 
+        case_.id === doc.caseId 
+          ? { 
+              ...case_, 
+              documentsCount: Math.max(0, case_.documentsCount - 1),
+              lastUpdated: new Date().toISOString()
+            }
+          : case_
       );
+      setCases(updatedCases);
+      
+      // Update in auth service
+      const updatedCase = updatedCases.find(c => c.id === doc.caseId);
+      if (updatedCase) {
+        authService.updateCase(updatedCase);
+      }
 
       // Log activity
       if (currentUser) {
@@ -301,6 +316,10 @@ const AdminDashboard = () => {
             <TabsTrigger value="users" className="flex items-center space-x-2">
               <Users className="h-4 w-4" />
               <span>User Management</span>
+            </TabsTrigger>
+            <TabsTrigger value="assignments" className="flex items-center space-x-2">
+              <UserPlus className="h-4 w-4" />
+              <span>Case Assignments</span>
             </TabsTrigger>
             <TabsTrigger value="activity" className="flex items-center space-x-2">
               <Activity className="h-4 w-4" />
@@ -421,6 +440,54 @@ const AdminDashboard = () => {
                     <p>No cases found. Create your first case to get started.</p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="assignments" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <UserPlus className="h-5 w-5" />
+                  <span>Case Assignments</span>
+                </CardTitle>
+                <CardDescription>Assign cases to doctors for evaluation</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {cases.map((case_) => (
+                    <Card key={case_.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-medium">{case_.patientName}</h4>
+                            <p className="text-sm text-gray-600">Case {case_.id} • {case_.injuryType}</p>
+                            <p className="text-sm text-gray-600">
+                              Currently assigned to: {case_.doctorAssigned || 'Unassigned'}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Select
+                              value={case_.doctorId || ''}
+                              onValueChange={(doctorId) => handleAssignCase(case_.id, doctorId)}
+                            >
+                              <SelectTrigger className="w-48">
+                                <SelectValue placeholder="Assign doctor" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {authService.getDoctors().map((doctor) => (
+                                  <SelectItem key={doctor.id} value={doctor.id}>
+                                    {doctor.name} {doctor.specialization ? `(${doctor.specialization})` : ''}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
