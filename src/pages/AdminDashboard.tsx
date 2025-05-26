@@ -1,32 +1,59 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Search, 
   Filter, 
-  Eye, 
   Upload, 
   Clock, 
   FileText, 
-  User,
   BarChart3,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from "lucide-react";
 import DocumentUpload from "@/components/DocumentUpload";
+import PatientInfoEditor from "@/components/PatientInfoEditor";
+import CaseManager from "@/components/CaseManager";
+import DocumentManager from "@/components/DocumentManager";
+
+interface PatientCase {
+  id: string;
+  patientName: string;
+  accidentDate: string;
+  submissionDate: string;
+  status: string;
+  priority: string;
+  injuryType: string;
+  doctorAssigned: string;
+  claimAmount: string;
+  documentsCount: number;
+  evaluationStatus: string;
+}
+
+interface Document {
+  id: string;
+  name: string;
+  type: string;
+  uploadDate: string;
+  uploadedBy: string;
+  size: string;
+  pages: number;
+  category: string;
+  caseId: string;
+}
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
+  const [isCreatingCase, setIsCreatingCase] = useState(false);
 
-  // Mock data for cases
-  const cases = [
+  // Real state management for cases
+  const [cases, setCases] = useState<PatientCase[]>([
     {
       id: "C001",
       patientName: "John Anderson",
@@ -37,7 +64,7 @@ const AdminDashboard = () => {
       injuryType: "Motor Vehicle Accident",
       doctorAssigned: "Dr. Michael Smith",
       claimAmount: "$45,000",
-      documentsCount: 6,
+      documentsCount: 3,
       evaluationStatus: "not-started"
     },
     {
@@ -50,7 +77,7 @@ const AdminDashboard = () => {
       injuryType: "Workplace Injury",
       doctorAssigned: "Dr. Emily Davis",
       claimAmount: "$28,000",
-      documentsCount: 4,
+      documentsCount: 2,
       evaluationStatus: "in-progress"
     },
     {
@@ -63,26 +90,114 @@ const AdminDashboard = () => {
       injuryType: "Slip and Fall",
       doctorAssigned: "Dr. Michael Smith",
       claimAmount: "$15,000",
-      documentsCount: 8,
+      documentsCount: 4,
       evaluationStatus: "completed"
     }
-  ];
+  ]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending-evaluation": return "bg-yellow-100 text-yellow-800";
-      case "under-review": return "bg-blue-100 text-blue-800";
-      case "completed": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
+  // Real state management for documents
+  const [documents, setDocuments] = useState<Document[]>([
+    {
+      id: "DOC001",
+      name: "Medical Records - Emergency Room",
+      type: "Medical Report",
+      uploadDate: "2024-01-20",
+      uploadedBy: "Dr. Michael Smith",
+      size: "2.3 MB",
+      pages: 15,
+      category: "medical",
+      caseId: "C001"
+    },
+    {
+      id: "DOC002",
+      name: "X-Ray Results",
+      type: "Diagnostic Image",
+      uploadDate: "2024-01-20",
+      uploadedBy: "Radiology Dept",
+      size: "12.1 MB",
+      pages: 8,
+      category: "imaging",
+      caseId: "C001"
+    },
+    {
+      id: "DOC003",
+      name: "Police Report",
+      type: "Legal Document",
+      uploadDate: "2024-01-18",
+      uploadedBy: "SFPD Officer Johnson",
+      size: "1.8 MB",
+      pages: 6,
+      category: "legal",
+      caseId: "C001"
+    },
+    {
+      id: "DOC004",
+      name: "MRI Scan Results",
+      type: "Diagnostic Image",
+      uploadDate: "2024-01-22",
+      uploadedBy: "Imaging Center",
+      size: "45.2 MB",
+      pages: 12,
+      category: "imaging",
+      caseId: "C002"
+    },
+    {
+      id: "DOC005",
+      name: "Physical Therapy Assessment",
+      type: "Treatment Report",
+      uploadDate: "2024-01-25",
+      uploadedBy: "PT Clinic",
+      size: "3.1 MB",
+      pages: 10,
+      category: "treatment",
+      caseId: "C002"
     }
+  ]);
+
+  const handleCaseUpdate = (updatedCase: PatientCase) => {
+    setCases(prev => 
+      prev.map(case_ => 
+        case_.id === updatedCase.id ? {
+          ...updatedCase,
+          documentsCount: documents.filter(doc => doc.caseId === updatedCase.id).length
+        } : case_
+      )
+    );
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high": return "bg-red-100 text-red-800";
-      case "medium": return "bg-yellow-100 text-yellow-800";
-      case "low": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
+  const handleCaseDelete = (caseId: string) => {
+    setCases(prev => prev.filter(case_ => case_.id !== caseId));
+    setDocuments(prev => prev.filter(doc => doc.caseId !== caseId));
+  };
+
+  const handleCreateCase = (newCase: PatientCase) => {
+    setCases(prev => [...prev, newCase]);
+  };
+
+  const handleDocumentUploaded = (newDocument: Document) => {
+    setDocuments(prev => [...prev, newDocument]);
+    // Update case document count
+    setCases(prev => 
+      prev.map(case_ => 
+        case_.id === newDocument.caseId 
+          ? { ...case_, documentsCount: case_.documentsCount + 1 }
+          : case_
+      )
+    );
+  };
+
+  const handleDocumentDeleted = (documentId: string) => {
+    const doc = documents.find(d => d.id === documentId);
+    if (doc) {
+      setDocuments(prev => prev.filter(d => d.id !== documentId));
+      // Update case document count
+      setCases(prev => 
+        prev.map(case_ => 
+          case_.id === doc.caseId 
+            ? { ...case_, documentsCount: Math.max(0, case_.documentsCount - 1) }
+            : case_
+        )
+      );
     }
   };
 
@@ -90,6 +205,12 @@ const AdminDashboard = () => {
     case_.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     case_.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Calculate real stats
+  const totalCases = cases.length;
+  const pendingCases = cases.filter(c => c.status === "pending-evaluation" || c.status === "under-review").length;
+  const completedCases = cases.filter(c => c.status === "completed").length;
+  const highPriorityCases = cases.filter(c => c.priority === "high").length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -122,6 +243,10 @@ const AdminDashboard = () => {
               <Upload className="h-4 w-4" />
               <span>Document Upload</span>
             </TabsTrigger>
+            <TabsTrigger value="documents" className="flex items-center space-x-2">
+              <FileText className="h-4 w-4" />
+              <span>Document Management</span>
+            </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
               <span>Analytics</span>
@@ -136,7 +261,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Total Cases</p>
-                      <p className="text-2xl font-bold text-gray-900">24</p>
+                      <p className="text-2xl font-bold text-gray-900">{totalCases}</p>
                     </div>
                     <FileText className="h-8 w-8 text-blue-600" />
                   </div>
@@ -147,7 +272,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Pending Review</p>
-                      <p className="text-2xl font-bold text-yellow-600">8</p>
+                      <p className="text-2xl font-bold text-yellow-600">{pendingCases}</p>
                     </div>
                     <Clock className="h-8 w-8 text-yellow-600" />
                   </div>
@@ -158,7 +283,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Completed</p>
-                      <p className="text-2xl font-bold text-green-600">12</p>
+                      <p className="text-2xl font-bold text-green-600">{completedCases}</p>
                     </div>
                     <TrendingUp className="h-8 w-8 text-green-600" />
                   </div>
@@ -169,7 +294,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">High Priority</p>
-                      <p className="text-2xl font-bold text-red-600">4</p>
+                      <p className="text-2xl font-bold text-red-600">{highPriorityCases}</p>
                     </div>
                     <AlertCircle className="h-8 w-8 text-red-600" />
                   </div>
@@ -177,11 +302,19 @@ const AdminDashboard = () => {
               </Card>
             </div>
 
-            {/* Search and Filter */}
+            {/* Search and Actions */}
             <Card>
               <CardHeader>
-                <CardTitle>Case Management</CardTitle>
-                <CardDescription>Manage healthcare claims and track evaluation progress</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Case Management</CardTitle>
+                    <CardDescription>Manage healthcare claims and track evaluation progress</CardDescription>
+                  </div>
+                  <Button onClick={() => setIsCreatingCase(true)} className="flex items-center space-x-2">
+                    <Plus className="h-4 w-4" />
+                    <span>New Case</span>
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center space-x-4 mb-6">
@@ -203,73 +336,22 @@ const AdminDashboard = () => {
                 {/* Cases List */}
                 <div className="space-y-4">
                   {filteredCases.map((case_) => (
-                    <Card key={case_.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2">
-                              <h3 className="text-lg font-semibold text-gray-900">
-                                {case_.patientName}
-                              </h3>
-                              <Badge className={getStatusColor(case_.status)}>
-                                {case_.status.replace("-", " ")}
-                              </Badge>
-                              <Badge className={getPriorityColor(case_.priority)}>
-                                {case_.priority}
-                              </Badge>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                              <div>
-                                <span className="font-medium">Case ID:</span> {case_.id}
-                              </div>
-                              <div>
-                                <span className="font-medium">Accident:</span> {case_.accidentDate}
-                              </div>
-                              <div>
-                                <span className="font-medium">Submitted:</span> {case_.submissionDate}
-                              </div>
-                              <div>
-                                <span className="font-medium">Claim:</span> {case_.claimAmount}
-                              </div>
-                              <div>
-                                <span className="font-medium">Injury Type:</span> {case_.injuryType}
-                              </div>
-                              <div>
-                                <span className="font-medium">Doctor:</span> {case_.doctorAssigned}
-                              </div>
-                              <div>
-                                <span className="font-medium">Documents:</span> {case_.documentsCount}
-                              </div>
-                              <div>
-                                <span className="font-medium">Evaluation:</span> {case_.evaluationStatus}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => navigate(`/case/${case_.id}`)}
-                              className="flex items-center space-x-1"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span>View Case</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedCase(case_.id)}
-                              className="flex items-center space-x-1"
-                            >
-                              <Upload className="h-4 w-4" />
-                              <span>Upload Docs</span>
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <CaseManager
+                      key={case_.id}
+                      case_={case_}
+                      onUpdate={handleCaseUpdate}
+                      onDelete={handleCaseDelete}
+                      onSelectForUpload={setSelectedCase}
+                    />
                   ))}
                 </div>
+
+                {filteredCases.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>No cases found matching your search.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -299,11 +381,8 @@ const AdminDashboard = () => {
                             <div className="flex items-center justify-between">
                               <div>
                                 <p className="font-medium">{case_.patientName}</p>
-                                <p className="text-sm text-gray-600">Case {case_.id}</p>
+                                <p className="text-sm text-gray-600">Case {case_.id} • {case_.documentsCount} documents</p>
                               </div>
-                              <Badge className={getStatusColor(case_.status)}>
-                                {case_.status.replace("-", " ")}
-                              </Badge>
                             </div>
                           </div>
                         ))}
@@ -317,9 +396,7 @@ const AdminDashboard = () => {
                 {selectedCase ? (
                   <DocumentUpload 
                     caseId={selectedCase}
-                    onDocumentUploaded={() => {
-                      console.log("Document uploaded for case:", selectedCase);
-                    }}
+                    onDocumentUploaded={handleDocumentUploaded}
                   />
                 ) : (
                   <Card>
@@ -330,6 +407,19 @@ const AdminDashboard = () => {
                   </Card>
                 )}
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="documents" className="space-y-6">
+            <div className="grid gap-6">
+              {cases.map((case_) => (
+                <DocumentManager
+                  key={case_.id}
+                  caseId={case_.id}
+                  documents={documents}
+                  onDocumentDeleted={handleDocumentDeleted}
+                />
+              ))}
             </div>
           </TabsContent>
 
@@ -349,6 +439,14 @@ const AdminDashboard = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <PatientInfoEditor
+        isOpen={isCreatingCase}
+        onClose={() => setIsCreatingCase(false)}
+        case_={null}
+        onSave={handleCreateCase}
+        isNew={true}
+      />
     </div>
   );
 };

@@ -7,16 +7,29 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { FileText, Download, Eye, Search, Calendar, User } from "lucide-react";
 
-interface DocumentListProps {
+interface Document {
+  id: string;
+  name: string;
+  type: string;
+  uploadDate: string;
+  uploadedBy: string;
+  size: string;
+  pages: number;
+  category: string;
   caseId: string;
 }
 
-const DocumentList = ({ caseId }: DocumentListProps) => {
+interface DocumentListProps {
+  caseId: string;
+  documents?: Document[];
+}
+
+const DocumentList = ({ caseId, documents = [] }: DocumentListProps) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Mock documents data
-  const documents = [
+  // Default documents if none provided
+  const defaultDocuments: Document[] = [
     {
       id: "DOC001",
       name: "Medical Records - Emergency Room",
@@ -25,7 +38,8 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
       uploadedBy: "Dr. Michael Smith",
       size: "2.3 MB",
       pages: 15,
-      category: "medical"
+      category: "medical",
+      caseId: caseId
     },
     {
       id: "DOC002",
@@ -35,7 +49,8 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
       uploadedBy: "Radiology Dept",
       size: "12.1 MB",
       pages: 8,
-      category: "imaging"
+      category: "imaging",
+      caseId: caseId
     },
     {
       id: "DOC003",
@@ -45,39 +60,12 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
       uploadedBy: "SFPD Officer Johnson",
       size: "1.8 MB",
       pages: 6,
-      category: "legal"
-    },
-    {
-      id: "DOC004",
-      name: "MRI Scan Results",
-      type: "Diagnostic Image",
-      uploadDate: "2024-01-22",
-      uploadedBy: "Imaging Center",
-      size: "45.2 MB",
-      pages: 12,
-      category: "imaging"
-    },
-    {
-      id: "DOC005",
-      name: "Physical Therapy Assessment",
-      type: "Treatment Report",
-      uploadDate: "2024-01-25",
-      uploadedBy: "PT Clinic",
-      size: "3.1 MB",
-      pages: 10,
-      category: "treatment"
-    },
-    {
-      id: "DOC006",
-      name: "Insurance Claim Form",
-      type: "Administrative",
-      uploadDate: "2024-01-16",
-      uploadedBy: "Patient",
-      size: "0.8 MB",
-      pages: 4,
-      category: "administrative"
+      category: "legal",
+      caseId: caseId
     }
   ];
+
+  const documentsToShow = documents.length > 0 ? documents.filter(doc => doc.caseId === caseId) : defaultDocuments;
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -94,7 +82,7 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
     return <FileText className="h-4 w-4" />;
   };
 
-  const filteredDocuments = documents.filter(doc =>
+  const filteredDocuments = documentsToShow.filter(doc =>
     doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -105,7 +93,7 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
         <CardHeader>
           <CardTitle>Case Documents</CardTitle>
           <CardDescription>
-            All documents related to case {caseId}
+            All documents related to case {caseId} ({filteredDocuments.length} documents)
           </CardDescription>
         </CardHeader>
         <CardContent>

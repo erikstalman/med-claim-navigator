@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 interface DocumentUploadProps {
   caseId: string;
-  onDocumentUploaded?: () => void;
+  onDocumentUploaded?: (newDocument: any) => void;
 }
 
 const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => {
@@ -47,21 +47,33 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
     setUploading(true);
     
     try {
-      // Simulate upload process - in real implementation, this would upload to Supabase Storage
+      // Simulate upload process and create document records
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      console.log("Uploading documents:", {
-        caseId,
-        files: files.map(f => f.name),
-        documentType,
-        description
+      // Create document records for each uploaded file
+      files.forEach((file, index) => {
+        const newDocument = {
+          id: `DOC${String(Date.now() + index)}`,
+          name: file.name.replace(/\.[^/.]+$/, ""),
+          type: documentTypes.find(t => t.value === documentType)?.label || "Document",
+          uploadDate: new Date().toISOString().split('T')[0],
+          uploadedBy: "Admin User",
+          size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+          pages: Math.floor(Math.random() * 20) + 1,
+          category: documentType,
+          caseId: caseId,
+          fileName: file.name,
+          description: description
+        };
+
+        console.log("Document uploaded:", newDocument);
+        onDocumentUploaded?.(newDocument);
       });
       
-      toast.success(`${files.length} document(s) uploaded successfully`);
+      toast.success(`${files.length} document(s) uploaded successfully to case ${caseId}`);
       setFiles([]);
       setDocumentType("");
       setDescription("");
-      onDocumentUploaded?.();
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("Failed to upload documents");
@@ -167,12 +179,12 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
           {uploading ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Uploading...
+              Uploading to Case {caseId}...
             </>
           ) : (
             <>
               <CheckCircle className="h-4 w-4 mr-2" />
-              Upload {files.length} Document{files.length !== 1 ? 's' : ''}
+              Upload {files.length} Document{files.length !== 1 ? 's' : ''} to Case {caseId}
             </>
           )}
         </Button>
