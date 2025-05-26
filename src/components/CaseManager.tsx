@@ -8,20 +8,7 @@ import { Edit, Trash2, Eye, Upload } from "lucide-react";
 import { toast } from "sonner";
 import PatientInfoEditor from "./PatientInfoEditor";
 import { useNavigate } from "react-router-dom";
-
-interface PatientCase {
-  id: string;
-  patientName: string;
-  accidentDate: string;
-  submissionDate: string;
-  status: string;
-  priority: string;
-  injuryType: string;
-  doctorAssigned: string;
-  claimAmount: string;
-  documentsCount: number;
-  evaluationStatus: string;
-}
+import { PatientCase } from "@/types";
 
 interface CaseManagerProps {
   case_: PatientCase;
