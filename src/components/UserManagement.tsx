@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { User } from "@/types";
 import { toast } from "sonner";
 
 const UserManagement = () => {
-  const [users, setUsers] = useState(authService.getAllUsers());
+  const [users, setUsers] = useState<User[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [showPasswords, setShowPasswords] = useState<{[key: string]: boolean}>({});
   const [newUser, setNewUser] = useState({
@@ -24,6 +24,15 @@ const UserManagement = () => {
     specialization: '',
     licenseNumber: ''
   });
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = () => {
+    const allUsers = authService.getAllUsers();
+    setUsers(allUsers);
+  };
 
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -40,6 +49,13 @@ const UserManagement = () => {
       return;
     }
 
+    // Check if email already exists
+    const existingUser = users.find(u => u.email === newUser.email);
+    if (existingUser) {
+      toast.error("A user with this email already exists");
+      return;
+    }
+
     const userData: Omit<User, 'id' | 'createdAt'> & { password: string } = {
       email: newUser.email,
       name: newUser.name,
@@ -50,24 +66,34 @@ const UserManagement = () => {
       licenseNumber: newUser.role === 'doctor' ? newUser.licenseNumber : undefined
     };
 
-    const createdUser = authService.createUser(userData);
-    setUsers(authService.getAllUsers());
-    setIsCreateDialogOpen(false);
-    setNewUser({
-      name: '',
-      email: '',
-      password: '',
-      role: 'doctor',
-      specialization: '',
-      licenseNumber: ''
-    });
-    toast.success(`User ${createdUser.name} created successfully with login credentials`);
+    try {
+      const createdUser = authService.createUser(userData);
+      loadUsers(); // Refresh the list
+      setIsCreateDialogOpen(false);
+      setNewUser({
+        name: '',
+        email: '',
+        password: '',
+        role: 'doctor',
+        specialization: '',
+        licenseNumber: ''
+      });
+      toast.success(`User ${createdUser.name} created successfully with login credentials`);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      toast.error("Failed to create user. Please try again.");
+    }
   };
 
   const handleDeactivateUser = (userId: string) => {
-    authService.deactivateUser(userId);
-    setUsers(authService.getAllUsers());
-    toast.success("User deactivated successfully");
+    try {
+      authService.deactivateUser(userId);
+      loadUsers(); // Refresh the list
+      toast.success("User deactivated successfully");
+    } catch (error) {
+      console.error('Error deactivating user:', error);
+      toast.error("Failed to deactivate user. Please try again.");
+    }
   };
 
   const togglePasswordVisibility = (userId: string) => {
@@ -90,6 +116,9 @@ const UserManagement = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Filter out system-admin users for regular admin view
+  const managedUsers = users.filter(user => user.role !== 'system-admin');
 
   return (
     <Card>
@@ -198,7 +227,7 @@ const UserManagement = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {users.map((user) => (
+          {managedUsers.map((user) => (
             <Card key={user.id} className={!user.isActive ? 'opacity-50' : ''}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -274,6 +303,11 @@ const UserManagement = () => {
               </CardContent>
             </Card>
           ))}
+          {managedUsers.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              No users found. Create your first user to get started.
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

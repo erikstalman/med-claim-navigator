@@ -177,8 +177,9 @@ const Login = () => {
 
           <div className="mt-4 text-xs text-gray-600 space-y-1">
             <p><strong>Demo Credentials:</strong></p>
-            <p>Admin: admin@insurance.com / password</p>
-            <p>System: sysadmin@insurance.com / password</p>
+            <p>Doctor: doctor@healthcare.com / doctor123</p>
+            <p>Admin: admin@insurance.com / admin123</p>
+            <p>System: sysadmin@insurance.com / sysadmin123</p>
           </div>
         </CardContent>
       </Card>
