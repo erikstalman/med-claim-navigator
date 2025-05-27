@@ -1,38 +1,73 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, FileText, MessageSquare, Save, Send } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import AIDocumentChat from "@/components/AIDocumentChat";
 import DocumentList from "@/components/DocumentList";
 import EvaluationForm from "@/components/EvaluationForm";
+import { dataService } from "@/services/dataService";
+import { authService } from "@/services/authService";
+import { PatientCase, User } from "@/types";
 
 const CaseDetails = () => {
   const { caseId } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
+  const [caseData, setCaseData] = useState<PatientCase | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // Mock case data
-  const caseData = {
-    id: caseId,
-    patientName: "John Anderson",
-    accidentDate: "2024-01-15",
-    submissionDate: "2024-01-20",
-    status: "pending",
-    priority: "high",
-    injuryType: "Motor Vehicle Accident",
-    patientAge: 42,
-    accidentLocation: "Highway 101, San Francisco, CA",
-    reportingDoctor: "Dr. Michael Smith",
-    insurancePolicy: "Policy #12345678",
-    claimAmount: "$45,000"
+  useEffect(() => {
+    const user = authService.getCurrentUser();
+    if (!user) {
+      navigate('/');
+      return;
+    }
+    setCurrentUser(user);
+
+    if (caseId) {
+      const cases = dataService.getCases();
+      const foundCase = cases.find(c => c.id === caseId);
+      if (foundCase) {
+        setCaseData(foundCase);
+      } else {
+        // Case not found, redirect back
+        navigate(user.role === 'admin' ? '/admin' : '/doctor');
+      }
+    }
+  }, [caseId, navigate]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pending-evaluation": return "bg-yellow-100 text-yellow-800";
+      case "under-review": return "bg-blue-100 text-blue-800";
+      case "completed": return "bg-green-100 text-green-800";
+      case "rejected": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
   };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "high": return "bg-red-100 text-red-800";
+      case "medium": return "bg-yellow-100 text-yellow-800";
+      case "low": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  if (!caseData || !currentUser) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div>Loading case details...</div>
+      </div>
+    );
+  }
+
+  const backUrl = currentUser.role === 'admin' ? '/admin' : '/doctor';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -43,7 +78,7 @@ const CaseDetails = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => navigate("/doctor")}
+              onClick={() => navigate(backUrl)}
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -59,10 +94,10 @@ const CaseDetails = () => {
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <Badge className="bg-yellow-100 text-yellow-800">
+            <Badge className={getStatusColor(caseData.status)}>
               {caseData.status.replace("-", " ")}
             </Badge>
-            <Badge className="bg-red-100 text-red-800">
+            <Badge className={getPriorityColor(caseData.priority)}>
               {caseData.priority}
             </Badge>
           </div>
@@ -93,11 +128,11 @@ const CaseDetails = () => {
                       </div>
                       <div>
                         <span className="font-medium text-gray-600">Age:</span>
-                        <div>{caseData.patientAge} years</div>
+                        <div>{caseData.patientAge || 'N/A'} years</div>
                       </div>
                       <div>
                         <span className="font-medium text-gray-600">Policy:</span>
-                        <div>{caseData.insurancePolicy}</div>
+                        <div>{caseData.insurancePolicy || 'N/A'}</div>
                       </div>
                       <div>
                         <span className="font-medium text-gray-600">Claim Amount:</span>
@@ -119,15 +154,15 @@ const CaseDetails = () => {
                       </div>
                       <div>
                         <span className="font-medium text-gray-600">Location:</span>
-                        <div>{caseData.accidentLocation}</div>
+                        <div>{caseData.accidentLocation || 'N/A'}</div>
                       </div>
                       <div>
                         <span className="font-medium text-gray-600">Type:</span>
                         <div>{caseData.injuryType}</div>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-600">Reporting Doctor:</span>
-                        <div>{caseData.reportingDoctor}</div>
+                        <span className="font-medium text-gray-600">Assigned Doctor:</span>
+                        <div>{caseData.doctorAssigned || 'Not assigned'}</div>
                       </div>
                     </div>
                   </CardContent>
@@ -150,10 +185,21 @@ const CaseDetails = () => {
                     <div className="flex items-center space-x-3 p-3 bg-yellow-50 rounded-lg">
                       <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
                       <div className="flex-1">
-                        <div className="font-medium">Assigned for Review</div>
-                        <div className="text-sm text-gray-600">Pending evaluation</div>
+                        <div className="font-medium">Current Status</div>
+                        <div className="text-sm text-gray-600">{caseData.status.replace("-", " ")}</div>
                       </div>
                     </div>
+                    {caseData.lastUpdated && (
+                      <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                        <div className="flex-1">
+                          <div className="font-medium">Last Updated</div>
+                          <div className="text-sm text-gray-600">
+                            {new Date(caseData.lastUpdated).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
