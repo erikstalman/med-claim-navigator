@@ -1,3 +1,4 @@
+
 import { User, ActivityLog, PatientCase, ChatMessage, Document, AIRule } from '../types';
 
 interface AppData {
@@ -124,7 +125,8 @@ class DataService {
         const parsed = JSON.parse(stored) as AppData;
         if (this.validateData(parsed)) {
           console.log('Data loaded successfully from primary storage');
-          return parsed;
+          // Merge with defaults to ensure we have all required users
+          return this.mergeWithDefaults(parsed);
         }
       }
 
@@ -134,8 +136,9 @@ class DataService {
         const parsed = JSON.parse(backup) as AppData;
         if (this.validateData(parsed)) {
           console.log('Data restored from backup storage');
-          this.saveData(parsed); // Restore to primary storage
-          return parsed;
+          const mergedData = this.mergeWithDefaults(parsed);
+          this.saveData(mergedData); // Restore to primary storage
+          return mergedData;
         }
       }
 
@@ -149,6 +152,24 @@ class DataService {
       this.saveData(defaultData);
       return defaultData;
     }
+  }
+
+  private mergeWithDefaults(existingData: AppData): AppData {
+    const defaults = this.getDefaultData();
+    
+    // Ensure default users exist
+    const mergedUsers = [...existingData.users];
+    defaults.users.forEach(defaultUser => {
+      if (!mergedUsers.find(u => u.id === defaultUser.id)) {
+        mergedUsers.push(defaultUser);
+      }
+    });
+
+    return {
+      ...existingData,
+      users: mergedUsers,
+      version: this.VERSION
+    };
   }
 
   private validateData(data: any): data is AppData {
@@ -358,7 +379,7 @@ class DataService {
     try {
       const imported = JSON.parse(jsonData) as AppData;
       if (this.validateData(imported)) {
-        this.data = imported;
+        this.data = this.mergeWithDefaults(imported);
         this.saveData();
         return true;
       }

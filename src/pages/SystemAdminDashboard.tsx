@@ -9,35 +9,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Settings, FileText, Users, Activity, Plus, Edit, Trash2 } from "lucide-react";
 import { authService } from "@/services/authService";
+import { dataService } from "@/services/dataService";
 import { User, AIRule } from "@/types";
 import { toast } from "sonner";
+import UserManagement from "@/components/UserManagement";
 
 const SystemAdminDashboard = () => {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [aiRules, setAiRules] = useState<AIRule[]>([
-    {
-      id: '1',
-      title: 'Medical Evaluation Guidelines',
-      content: 'When evaluating medical claims, always consider the severity of injury, pre-existing conditions, and correlation between accident and claimed symptoms.',
-      category: 'medical',
-      isActive: true,
-      createdBy: 'system',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: '2',
-      title: 'Document Analysis Rules',
-      content: 'Prioritize official medical records over patient statements. Cross-reference police reports with medical findings.',
-      category: 'analysis',
-      isActive: true,
-      createdBy: 'system',
-      updatedAt: new Date().toISOString()
-    }
-  ]);
+  const [aiRules, setAiRules] = useState<AIRule[]>([]);
   const [isCreatingRule, setIsCreatingRule] = useState(false);
+  const [editingRule, setEditingRule] = useState<AIRule | null>(null);
   const [newRule, setNewRule] = useState({
     title: '',
     content: '',
@@ -51,7 +36,13 @@ const SystemAdminDashboard = () => {
       return;
     }
     setCurrentUser(user);
+    loadAIRules();
   }, [navigate]);
+
+  const loadAIRules = () => {
+    const rules = dataService.getAIRules();
+    setAiRules(rules);
+  };
 
   const handleCreateRule = () => {
     if (!newRule.title || !newRule.content) {
@@ -69,24 +60,61 @@ const SystemAdminDashboard = () => {
       updatedAt: new Date().toISOString()
     };
 
-    setAiRules(prev => [...prev, rule]);
+    dataService.addAIRule(rule);
+    loadAIRules();
     setNewRule({ title: '', content: '', category: 'medical' });
     setIsCreatingRule(false);
     toast.success("AI rule created successfully");
   };
 
+  const handleEditRule = (rule: AIRule) => {
+    setEditingRule(rule);
+    setNewRule({
+      title: rule.title,
+      content: rule.content,
+      category: rule.category
+    });
+  };
+
+  const handleUpdateRule = () => {
+    if (!editingRule || !newRule.title || !newRule.content) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const updatedRule: AIRule = {
+      ...editingRule,
+      title: newRule.title,
+      content: newRule.content,
+      category: newRule.category,
+      updatedAt: new Date().toISOString()
+    };
+
+    dataService.updateAIRule(updatedRule);
+    loadAIRules();
+    setEditingRule(null);
+    setNewRule({ title: '', content: '', category: 'medical' });
+    toast.success("AI rule updated successfully");
+  };
+
   const handleDeleteRule = (ruleId: string) => {
-    setAiRules(prev => prev.filter(rule => rule.id !== ruleId));
+    dataService.deleteAIRule(ruleId);
+    loadAIRules();
     toast.success("AI rule deleted successfully");
   };
 
   const handleToggleRule = (ruleId: string) => {
-    setAiRules(prev => prev.map(rule => 
-      rule.id === ruleId 
-        ? { ...rule, isActive: !rule.isActive, updatedAt: new Date().toISOString() }
-        : rule
-    ));
-    toast.success("AI rule updated successfully");
+    const rule = aiRules.find(r => r.id === ruleId);
+    if (rule) {
+      const updatedRule = {
+        ...rule,
+        isActive: !rule.isActive,
+        updatedAt: new Date().toISOString()
+      };
+      dataService.updateAIRule(updatedRule);
+      loadAIRules();
+      toast.success("AI rule updated successfully");
+    }
   };
 
   const handleLogout = () => {
@@ -137,6 +165,10 @@ const SystemAdminDashboard = () => {
             <TabsTrigger value="ai-rules" className="flex items-center space-x-2">
               <Settings className="h-4 w-4" />
               <span>AI Rules</span>
+            </TabsTrigger>
+            <TabsTrigger value="user-management" className="flex items-center space-x-2">
+              <Users className="h-4 w-4" />
+              <span>User Management</span>
             </TabsTrigger>
             <TabsTrigger value="system-overview" className="flex items-center space-x-2">
               <Activity className="h-4 w-4" />
@@ -189,6 +221,13 @@ const SystemAdminDashboard = () => {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => handleEditRule(rule)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleToggleRule(rule.id)}
                             >
                               {rule.isActive ? "Deactivate" : "Activate"}
@@ -208,10 +247,10 @@ const SystemAdminDashboard = () => {
                   ))}
                 </div>
 
-                {isCreatingRule && (
+                {(isCreatingRule || editingRule) && (
                   <Card className="mt-6">
                     <CardHeader>
-                      <CardTitle>Create New AI Rule</CardTitle>
+                      <CardTitle>{editingRule ? 'Edit AI Rule' : 'Create New AI Rule'}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
@@ -248,10 +287,14 @@ const SystemAdminDashboard = () => {
                         />
                       </div>
                       <div className="flex space-x-2">
-                        <Button onClick={handleCreateRule}>
-                          Create Rule
+                        <Button onClick={editingRule ? handleUpdateRule : handleCreateRule}>
+                          {editingRule ? 'Update Rule' : 'Create Rule'}
                         </Button>
-                        <Button variant="outline" onClick={() => setIsCreatingRule(false)}>
+                        <Button variant="outline" onClick={() => {
+                          setIsCreatingRule(false);
+                          setEditingRule(null);
+                          setNewRule({ title: '', content: '', category: 'medical' });
+                        }}>
                           Cancel
                         </Button>
                       </div>
@@ -260,6 +303,10 @@ const SystemAdminDashboard = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="user-management" className="space-y-6">
+            <UserManagement />
           </TabsContent>
 
           <TabsContent value="system-overview" className="space-y-6">

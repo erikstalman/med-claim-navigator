@@ -14,18 +14,21 @@ import { toast } from "sonner";
 
 const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [showPasswords, setShowPasswords] = useState<{[key: string]: boolean}>({});
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
     password: '',
-    role: 'doctor' as 'admin' | 'doctor',
+    role: 'doctor' as 'admin' | 'doctor' | 'system-admin',
     specialization: '',
     licenseNumber: ''
   });
 
   useEffect(() => {
+    const user = authService.getCurrentUser();
+    setCurrentUser(user);
     loadUsers();
   }, []);
 
@@ -117,8 +120,22 @@ const UserManagement = () => {
     }
   };
 
-  // Filter out system-admin users for regular admin view
-  const managedUsers = users.filter(user => user.role !== 'system-admin');
+  // Filter users based on current user role
+  const managedUsers = currentUser?.role === 'system-admin' 
+    ? users // System admin can see all users
+    : users.filter(user => user.role !== 'system-admin'); // Regular admin can't see system admins
+
+  // Available roles based on current user
+  const availableRoles = currentUser?.role === 'system-admin'
+    ? [
+        { value: 'doctor', label: 'Doctor' },
+        { value: 'admin', label: 'Administrator' },
+        { value: 'system-admin', label: 'System Administrator' }
+      ]
+    : [
+        { value: 'doctor', label: 'Doctor' },
+        { value: 'admin', label: 'Administrator' }
+      ];
 
   return (
     <Card>
@@ -129,7 +146,12 @@ const UserManagement = () => {
               <Users className="h-5 w-5" />
               <span>User Management</span>
             </CardTitle>
-            <CardDescription>Manage doctors and administrators with login credentials</CardDescription>
+            <CardDescription>
+              {currentUser?.role === 'system-admin' 
+                ? 'Manage all system users with login credentials'
+                : 'Manage doctors and administrators with login credentials'
+              }
+            </CardDescription>
           </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
@@ -141,7 +163,7 @@ const UserManagement = () => {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
-                <DialogDescription>Add a new doctor or administrator to the system</DialogDescription>
+                <DialogDescription>Add a new user to the system</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -180,13 +202,16 @@ const UserManagement = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role *</Label>
-                  <Select value={newUser.role} onValueChange={(value: 'admin' | 'doctor') => setNewUser(prev => ({ ...prev, role: value }))}>
+                  <Select value={newUser.role} onValueChange={(value: 'admin' | 'doctor' | 'system-admin') => setNewUser(prev => ({ ...prev, role: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="doctor">Doctor</SelectItem>
-                      <SelectItem value="admin">Administrator</SelectItem>
+                      {availableRoles.map((role) => (
+                        <SelectItem key={role.value} value={role.value}>
+                          {role.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
