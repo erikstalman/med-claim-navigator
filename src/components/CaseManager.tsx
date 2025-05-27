@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Edit, Trash2, Eye, Upload } from "lucide-react";
+import { Edit, Trash2, Eye, Upload, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import PatientInfoEditor from "./PatientInfoEditor";
 import { useNavigate } from "react-router-dom";
@@ -15,9 +15,10 @@ interface CaseManagerProps {
   onUpdate: (updatedCase: PatientCase) => void;
   onDelete: (caseId: string) => void;
   onSelectForUpload: (caseId: string) => void;
+  onOpenChat?: (caseId: string) => void;
 }
 
-const CaseManager = ({ case_, onUpdate, onDelete, onSelectForUpload }: CaseManagerProps) => {
+const CaseManager = ({ case_, onUpdate, onDelete, onSelectForUpload, onOpenChat }: CaseManagerProps) => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
 
@@ -43,6 +44,20 @@ const CaseManager = ({ case_, onUpdate, onDelete, onSelectForUpload }: CaseManag
   const handleDelete = () => {
     onDelete(case_.id);
     toast.success("Case deleted successfully");
+  };
+
+  const handleViewCase = () => {
+    navigate(`/case/${case_.id}`);
+  };
+
+  const handleUploadDocuments = () => {
+    onSelectForUpload(case_.id);
+  };
+
+  const handleChatOpen = () => {
+    if (onOpenChat) {
+      onOpenChat(case_.id);
+    }
   };
 
   return (
@@ -89,61 +104,74 @@ const CaseManager = ({ case_, onUpdate, onDelete, onSelectForUpload }: CaseManag
                 </div>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(`/case/${case_.id}`)}
-                className="flex items-center space-x-1"
-              >
-                <Eye className="h-4 w-4" />
-                <span>View</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditing(true)}
-                className="flex items-center space-x-1"
-              >
-                <Edit className="h-4 w-4" />
-                <span>Edit</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onSelectForUpload(case_.id)}
-                className="flex items-center space-x-1"
-              >
-                <Upload className="h-4 w-4" />
-                <span>Upload</span>
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center space-x-1 text-red-600 hover:text-red-700"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span>Delete</span>
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Case</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete case {case_.id} for {case_.patientName}? 
-                      This action cannot be undone and will permanently remove all case data and documents.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                      Delete Case
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+            <div className="flex flex-col items-end space-y-2">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewCase}
+                  className="flex items-center space-x-1"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>View</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center space-x-1"
+                >
+                  <Edit className="h-4 w-4" />
+                  <span>Edit</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUploadDocuments}
+                  className="flex items-center space-x-1"
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>Upload</span>
+                </Button>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleChatOpen}
+                  className="flex items-center space-x-1"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Chat</span>
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center space-x-1 text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span>Delete</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Case</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete case {case_.id} for {case_.patientName}? 
+                        This action cannot be undone and will permanently remove all case data and documents.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                        Delete Case
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           </div>
         </CardContent>

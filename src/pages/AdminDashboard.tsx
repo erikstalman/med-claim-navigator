@@ -27,6 +27,7 @@ import CaseManager from "@/components/CaseManager";
 import DocumentManager from "@/components/DocumentManager";
 import UserManagement from "@/components/UserManagement";
 import ChatPanel from "@/components/ChatPanel";
+import CaseAssignment from "@/components/CaseAssignment";
 import { authService } from "@/services/authService";
 import { chatService } from "@/services/chatService";
 import { PatientCase, Document, User, ActivityLog } from "@/types";
@@ -41,6 +42,7 @@ const AdminDashboard = () => {
   const [activeChatCase, setActiveChatCase] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [activeTab, setActiveTab] = useState("cases");
 
   // Real state management with proper data structure
   const [cases, setCases] = useState<PatientCase[]>([]);
@@ -56,7 +58,18 @@ const AdminDashboard = () => {
     setCurrentUser(user);
     loadInitialData();
     updateUnreadChatCount();
+    cleanupOldCases();
   }, [navigate]);
+
+  const cleanupOldCases = () => {
+    // Remove any cases that weren't created by an admin
+    const allCases = authService.getAllCases();
+    const validCases = allCases.filter(case_ => case_.createdBy && case_.adminId);
+    
+    // Update the cases in storage
+    localStorage.setItem('healthcare_cases', JSON.stringify(validCases));
+    console.log("Cleaned up old cases, remaining:", validCases.length);
+  };
 
   const loadInitialData = () => {
     // Load cases and activity logs from auth service
@@ -145,11 +158,9 @@ const AdminDashboard = () => {
     toast.success("New case created successfully");
   };
 
-  const handleAssignCase = (caseId: string, doctorId: string) => {
-    authService.assignCaseToDoctor(caseId, doctorId);
-    setCases(authService.getAllCases());
-    setActivityLogs(authService.getActivityLogs());
-    toast.success("Case assigned to doctor successfully");
+  const handleSelectForUpload = (caseId: string) => {
+    setSelectedCase(caseId);
+    setActiveTab("upload");
   };
 
   const handleDocumentUploaded = (newDocument: Document) => {
@@ -299,7 +310,7 @@ const AdminDashboard = () => {
       </header>
 
       <div className="p-6">
-        <Tabs defaultValue="cases" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="cases" className="flex items-center space-x-2">
               <FileText className="h-4 w-4" />
@@ -414,23 +425,14 @@ const AdminDashboard = () => {
                 {/* Cases List */}
                 <div className="space-y-4">
                   {filteredCases.map((case_) => (
-                    <div key={case_.id} className="relative">
-                      <CaseManager
-                        case_={case_}
-                        onUpdate={handleCaseUpdate}
-                        onDelete={handleCaseDelete}
-                        onSelectForUpload={setSelectedCase}
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenChat(case_.id)}
-                        className="absolute top-4 right-4 flex items-center space-x-1"
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                        <span>Chat</span>
-                      </Button>
-                    </div>
+                    <CaseManager
+                      key={case_.id}
+                      case_={case_}
+                      onUpdate={handleCaseUpdate}
+                      onDelete={handleCaseDelete}
+                      onSelectForUpload={handleSelectForUpload}
+                      onOpenChat={handleOpenChat}
+                    />
                   ))}
                 </div>
 
@@ -445,51 +447,7 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="assignments" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <UserPlus className="h-5 w-5" />
-                  <span>Case Assignments</span>
-                </CardTitle>
-                <CardDescription>Assign cases to doctors for evaluation</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {cases.map((case_) => (
-                    <Card key={case_.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-medium">{case_.patientName}</h4>
-                            <p className="text-sm text-gray-600">Case {case_.id} • {case_.injuryType}</p>
-                            <p className="text-sm text-gray-600">
-                              Currently assigned to: {case_.doctorAssigned || 'Unassigned'}
-                            </p>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Select
-                              value={case_.doctorId || ''}
-                              onValueChange={(doctorId) => handleAssignCase(case_.id, doctorId)}
-                            >
-                              <SelectTrigger className="w-48">
-                                <SelectValue placeholder="Assign doctor" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {authService.getDoctors().map((doctor) => (
-                                  <SelectItem key={doctor.id} value={doctor.id}>
-                                    {doctor.name} {doctor.specialization ? `(${doctor.specialization})` : ''}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <CaseAssignment />
           </TabsContent>
 
           <TabsContent value="upload" className="space-y-6">

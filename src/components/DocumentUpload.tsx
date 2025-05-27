@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,12 +19,15 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
   const [uploading, setUploading] = useState(false);
   const [documentType, setDocumentType] = useState("");
   const [description, setDescription] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const documentTypes = [
     { value: "medical", label: "Medical Report" },
     { value: "imaging", label: "Diagnostic Image" },
     { value: "legal", label: "Legal Document" },
     { value: "treatment", label: "Treatment Report" },
+    { value: "patient-claim", label: "Patient Claim" },
     { value: "administrative", label: "Administrative" },
     { value: "other", label: "Other" }
   ];
@@ -32,6 +35,34 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files || []);
     setFiles(prev => [...prev, ...selectedFiles]);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    const validFiles = droppedFiles.filter(file => {
+      const validTypes = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.tiff'];
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      return validTypes.includes(fileExtension) && file.size <= 10 * 1024 * 1024; // 10MB limit
+    });
+
+    if (validFiles.length !== droppedFiles.length) {
+      toast.error("Some files were rejected. Please check file type and size limits.");
+    }
+
+    setFiles(prev => [...prev, ...validFiles]);
   };
 
   const removeFile = (index: number) => {
@@ -82,6 +113,10 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
     }
   };
 
+  const handleUploadAreaClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -96,8 +131,19 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       <CardContent className="space-y-6">
         <div>
           <Label htmlFor="file-upload">Select Files</Label>
-          <div className="mt-2 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+          <div 
+            className={`mt-2 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+              isDragOver 
+                ? 'border-blue-400 bg-blue-50' 
+                : 'border-gray-300 hover:border-gray-400'
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={handleUploadAreaClick}
+          >
             <input
+              ref={fileInputRef}
               id="file-upload"
               type="file"
               multiple
@@ -105,15 +151,13 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
               onChange={handleFileSelect}
               className="hidden"
             />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-              <p className="text-sm text-gray-600">
-                Click to upload or drag and drop
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                PDF, DOC, DOCX, JPG, PNG, TIFF up to 10MB each
-              </p>
-            </label>
+            <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+            <p className="text-sm text-gray-600">
+              {isDragOver ? 'Drop files here' : 'Click to upload or drag and drop'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              PDF, DOC, DOCX, JPG, PNG, TIFF up to 10MB each
+            </p>
           </div>
         </div>
 
