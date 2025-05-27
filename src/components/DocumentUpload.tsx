@@ -34,35 +34,57 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files || []);
-    setFiles(prev => [...prev, ...selectedFiles]);
+    const validFiles = validateFiles(selectedFiles);
+    setFiles(prev => [...prev, ...validFiles]);
+  };
+
+  const validateFiles = (fileList: File[]) => {
+    const validTypes = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.tiff'];
+    const validFiles = fileList.filter(file => {
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      const isValidType = validTypes.includes(fileExtension);
+      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
+      
+      if (!isValidType) {
+        toast.error(`${file.name}: Invalid file type. Allowed: PDF, DOC, DOCX, JPG, PNG, TIFF`);
+        return false;
+      }
+      
+      if (!isValidSize) {
+        toast.error(`${file.name}: File too large. Maximum size: 10MB`);
+        return false;
+      }
+      
+      return true;
+    });
+
+    return validFiles;
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
     
     const droppedFiles = Array.from(e.dataTransfer.files);
-    const validFiles = droppedFiles.filter(file => {
-      const validTypes = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.tiff'];
-      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-      return validTypes.includes(fileExtension) && file.size <= 10 * 1024 * 1024; // 10MB limit
-    });
-
-    if (validFiles.length !== droppedFiles.length) {
-      toast.error("Some files were rejected. Please check file type and size limits.");
+    const validFiles = validateFiles(droppedFiles);
+    
+    if (validFiles.length > 0) {
+      setFiles(prev => [...prev, ...validFiles]);
+      toast.success(`${validFiles.length} file(s) added successfully`);
     }
-
-    setFiles(prev => [...prev, ...validFiles]);
   };
 
   const removeFile = (index: number) => {
@@ -78,10 +100,8 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
     setUploading(true);
     
     try {
-      // Simulate upload process and create document records
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Create document records for each uploaded file
       files.forEach((file, index) => {
         const newDocument = {
           id: `DOC${String(Date.now() + index)}`,
@@ -163,33 +183,35 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
 
         {files.length > 0 && (
           <div className="space-y-2">
-            <Label>Selected Files</Label>
-            {files.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <FileText className="h-4 w-4 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium">{file.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
+            <Label>Selected Files ({files.length})</Label>
+            <div className="max-h-40 overflow-y-auto space-y-2">
+              {files.map((file, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <FileText className="h-4 w-4 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium">{file.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeFile(index)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeFile(index)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
         <div>
-          <Label htmlFor="document-type">Document Type</Label>
+          <Label htmlFor="document-type">Document Type *</Label>
           <Select value={documentType} onValueChange={setDocumentType}>
             <SelectTrigger className="mt-2">
               <SelectValue placeholder="Select document type" />

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import ChatPanel from "@/components/ChatPanel";
 import CaseAssignment from "@/components/CaseAssignment";
 import { authService } from "@/services/authService";
 import { chatService } from "@/services/chatService";
+import { dataService } from "@/services/dataService";
 import { PatientCase, Document, User, ActivityLog } from "@/types";
 import { toast } from "sonner";
 
@@ -44,7 +46,6 @@ const AdminDashboard = () => {
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [activeTab, setActiveTab] = useState("cases");
 
-  // Real state management with proper data structure
   const [cases, setCases] = useState<PatientCase[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
@@ -58,23 +59,12 @@ const AdminDashboard = () => {
     setCurrentUser(user);
     loadInitialData();
     updateUnreadChatCount();
-    cleanupOldCases();
   }, [navigate]);
 
-  const cleanupOldCases = () => {
-    // Remove any cases that weren't created by an admin
-    const allCases = authService.getAllCases();
-    const validCases = allCases.filter(case_ => case_.createdBy && case_.adminId);
-    
-    // Update the cases in storage
-    localStorage.setItem('healthcare_cases', JSON.stringify(validCases));
-    console.log("Cleaned up old cases, remaining:", validCases.length);
-  };
-
   const loadInitialData = () => {
-    // Load cases and activity logs from auth service
-    setCases(authService.getAllCases());
-    setActivityLogs(authService.getActivityLogs());
+    setCases(dataService.getCases());
+    setDocuments(dataService.getDocuments());
+    setActivityLogs(dataService.getActivityLogs());
   };
 
   const updateUnreadChatCount = () => {
@@ -85,21 +75,24 @@ const AdminDashboard = () => {
   };
 
   const handleCaseUpdate = (updatedCase: PatientCase) => {
-    authService.updateCase(updatedCase);
-    setCases(authService.getAllCases());
+    dataService.updateCase(updatedCase);
+    setCases(dataService.getCases());
 
-    // Log activity
     if (currentUser) {
-      authService.logActivity(
-        currentUser.id,
-        currentUser.name,
-        currentUser.role,
-        'UPDATE_CASE',
-        updatedCase.id,
-        updatedCase.patientName,
-        'Case updated'
-      );
-      setActivityLogs(authService.getActivityLogs());
+      const log = {
+        id: Date.now().toString(),
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'UPDATE_CASE',
+        caseId: updatedCase.id,
+        caseName: updatedCase.patientName,
+        timestamp: new Date().toISOString(),
+        details: 'Case updated',
+        ipAddress: '127.0.0.1'
+      };
+      dataService.addActivityLog(log);
+      setActivityLogs(dataService.getActivityLogs());
     }
 
     toast.success("Case updated successfully");
@@ -107,22 +100,25 @@ const AdminDashboard = () => {
 
   const handleCaseDelete = (caseId: string) => {
     const caseToDelete = cases.find(c => c.id === caseId);
-    authService.deleteCase(caseId);
-    setCases(authService.getAllCases());
-    setDocuments(prev => prev.filter(doc => doc.caseId !== caseId));
+    dataService.deleteCase(caseId);
+    setCases(dataService.getCases());
+    setDocuments(dataService.getDocuments().filter(doc => doc.caseId !== caseId));
 
-    // Log activity
     if (currentUser && caseToDelete) {
-      authService.logActivity(
-        currentUser.id,
-        currentUser.name,
-        currentUser.role,
-        'DELETE_CASE',
-        caseId,
-        caseToDelete.patientName,
-        'Case deleted with all associated documents'
-      );
-      setActivityLogs(authService.getActivityLogs());
+      const log = {
+        id: Date.now().toString(),
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'DELETE_CASE',
+        caseId: caseId,
+        caseName: caseToDelete.patientName,
+        timestamp: new Date().toISOString(),
+        details: 'Case deleted with all associated documents',
+        ipAddress: '127.0.0.1'
+      };
+      dataService.addActivityLog(log);
+      setActivityLogs(dataService.getActivityLogs());
     }
 
     toast.success("Case and all associated documents deleted successfully");
@@ -138,21 +134,24 @@ const AdminDashboard = () => {
       adminAssigned: currentUser?.name || ''
     };
     
-    authService.addCase(caseWithMetadata);
-    setCases(authService.getAllCases());
+    dataService.addCase(caseWithMetadata);
+    setCases(dataService.getCases());
 
-    // Log activity
     if (currentUser) {
-      authService.logActivity(
-        currentUser.id,
-        currentUser.name,
-        currentUser.role,
-        'CREATE_CASE',
-        newCase.id,
-        newCase.patientName,
-        'New case created'
-      );
-      setActivityLogs(authService.getActivityLogs());
+      const log = {
+        id: Date.now().toString(),
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'CREATE_CASE',
+        caseId: newCase.id,
+        caseName: newCase.patientName,
+        timestamp: new Date().toISOString(),
+        details: 'New case created',
+        ipAddress: '127.0.0.1'
+      };
+      dataService.addActivityLog(log);
+      setActivityLogs(dataService.getActivityLogs());
     }
 
     toast.success("New case created successfully");
@@ -170,9 +169,9 @@ const AdminDashboard = () => {
       uploadedBy: currentUser?.name || ''
     };
     
-    setDocuments(prev => [...prev, documentWithMetadata]);
+    dataService.addDocument(documentWithMetadata);
+    setDocuments(dataService.getDocuments());
     
-    // Update case document count
     const updatedCases = cases.map(case_ => 
       case_.id === newDocument.caseId 
         ? { 
@@ -184,25 +183,27 @@ const AdminDashboard = () => {
     );
     setCases(updatedCases);
     
-    // Update in auth service
     const updatedCase = updatedCases.find(c => c.id === newDocument.caseId);
     if (updatedCase) {
-      authService.updateCase(updatedCase);
+      dataService.updateCase(updatedCase);
     }
 
-    // Log activity
     if (currentUser) {
       const relatedCase = cases.find(c => c.id === newDocument.caseId);
-      authService.logActivity(
-        currentUser.id,
-        currentUser.name,
-        currentUser.role,
-        'UPLOAD_DOCUMENT',
-        newDocument.caseId,
-        relatedCase?.patientName,
-        `Uploaded document: ${newDocument.name}`
-      );
-      setActivityLogs(authService.getActivityLogs());
+      const log = {
+        id: Date.now().toString(),
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'UPLOAD_DOCUMENT',
+        caseId: newDocument.caseId,
+        caseName: relatedCase?.patientName,
+        timestamp: new Date().toISOString(),
+        details: `Uploaded document: ${newDocument.name}`,
+        ipAddress: '127.0.0.1'
+      };
+      dataService.addActivityLog(log);
+      setActivityLogs(dataService.getActivityLogs());
     }
 
     toast.success("Document uploaded successfully");
@@ -211,9 +212,9 @@ const AdminDashboard = () => {
   const handleDocumentDeleted = (documentId: string) => {
     const doc = documents.find(d => d.id === documentId);
     if (doc) {
-      setDocuments(prev => prev.filter(d => d.id !== documentId));
+      dataService.deleteDocument(documentId);
+      setDocuments(dataService.getDocuments());
       
-      // Update case document count
       const updatedCases = cases.map(case_ => 
         case_.id === doc.caseId 
           ? { 
@@ -225,25 +226,27 @@ const AdminDashboard = () => {
       );
       setCases(updatedCases);
       
-      // Update in auth service
       const updatedCase = updatedCases.find(c => c.id === doc.caseId);
       if (updatedCase) {
-        authService.updateCase(updatedCase);
+        dataService.updateCase(updatedCase);
       }
 
-      // Log activity
       if (currentUser) {
         const relatedCase = cases.find(c => c.id === doc.caseId);
-        authService.logActivity(
-          currentUser.id,
-          currentUser.name,
-          currentUser.role,
-          'DELETE_DOCUMENT',
-          doc.caseId,
-          relatedCase?.patientName,
-          `Deleted document: ${doc.name}`
-        );
-        setActivityLogs(authService.getActivityLogs());
+        const log = {
+          id: Date.now().toString(),
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          action: 'DELETE_DOCUMENT',
+          caseId: doc.caseId,
+          caseName: relatedCase?.patientName,
+          timestamp: new Date().toISOString(),
+          details: `Deleted document: ${doc.name}`,
+          ipAddress: '127.0.0.1'
+        };
+        dataService.addActivityLog(log);
+        setActivityLogs(dataService.getActivityLogs());
       }
 
       toast.success("Document deleted successfully");
@@ -266,7 +269,6 @@ const AdminDashboard = () => {
     case_.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate real stats
   const totalCases = cases.length;
   const pendingCases = cases.filter(c => c.status === "pending-evaluation" || c.status === "under-review").length;
   const completedCases = cases.filter(c => c.status === "completed").length;
@@ -319,10 +321,6 @@ const AdminDashboard = () => {
             <TabsTrigger value="upload" className="flex items-center space-x-2">
               <Upload className="h-4 w-4" />
               <span>Document Upload</span>
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="flex items-center space-x-2">
-              <FileText className="h-4 w-4" />
-              <span>Document Management</span>
             </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center space-x-2">
               <Users className="h-4 w-4" />
@@ -453,37 +451,47 @@ const AdminDashboard = () => {
           <TabsContent value="upload" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <h2 className="text-xl font-semibold mb-4">Upload Documents</h2>
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Select Case</CardTitle>
-                      <CardDescription>Choose a case to upload documents for</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {cases.map((case_) => (
-                          <div
-                            key={case_.id}
-                            className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                              selectedCase === case_.id 
-                                ? 'border-blue-500 bg-blue-50' 
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                            onClick={() => setSelectedCase(case_.id)}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium">{case_.patientName}</p>
-                                <p className="text-sm text-gray-600">Case {case_.id} • {case_.documentsCount} documents</p>
-                              </div>
+                <h2 className="text-xl font-semibold mb-4">Select Case for Document Upload</h2>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Available Cases</CardTitle>
+                    <CardDescription>Choose a case to upload documents for</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {cases.map((case_) => (
+                        <div
+                          key={case_.id}
+                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                            selectedCase === case_.id 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                          onClick={() => setSelectedCase(case_.id)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{case_.patientName}</p>
+                              <p className="text-sm text-gray-600">Case {case_.id} • {case_.documentsCount} documents</p>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Document Management for Selected Case */}
+                {selectedCase && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-semibold mb-4">Documents for Selected Case</h3>
+                    <DocumentManager
+                      caseId={selectedCase}
+                      documents={documents}
+                      onDocumentDeleted={handleDocumentDeleted}
+                    />
+                  </div>
+                )}
               </div>
               
               <div>

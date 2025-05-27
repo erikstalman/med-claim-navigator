@@ -47,6 +47,7 @@ const CaseManager = ({ case_, onUpdate, onDelete, onSelectForUpload, onOpenChat 
   };
 
   const handleViewCase = () => {
+    // Navigate to the specific case using the actual case ID
     navigate(`/case/${case_.id}`);
   };
 
@@ -133,8 +134,6 @@ const CaseManager = ({ case_, onUpdate, onDelete, onSelectForUpload, onOpenChat 
                   <Upload className="h-4 w-4" />
                   <span>Upload</span>
                 </Button>
-              </div>
-              <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -144,6 +143,8 @@ const CaseManager = ({ case_, onUpdate, onDelete, onSelectForUpload, onOpenChat 
                   <MessageSquare className="h-4 w-4" />
                   <span>Chat</span>
                 </Button>
+              </div>
+              <div className="flex items-center space-x-2">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
