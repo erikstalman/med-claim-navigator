@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { FileText, Download, Eye, Search, Calendar, User, Upload } from "lucide-react";
+import { FileText, Download, Eye, Search, Calendar, User, Upload, RefreshCw } from "lucide-react";
 import { dataService } from "@/services/dataService";
 import { Document } from "@/types";
 import DocumentUpload from "./DocumentUpload";
@@ -19,19 +19,27 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [showUpload, setShowUpload] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     loadDocuments();
-  }, [caseId]);
+  }, [caseId, refreshKey]);
 
   const loadDocuments = () => {
     const allDocuments = dataService.getDocuments();
     const caseDocuments = allDocuments.filter(doc => doc.caseId === caseId);
+    console.log("Loading documents for case:", caseId, "Found:", caseDocuments.length);
     setDocuments(caseDocuments);
   };
 
   const handleDocumentUploaded = (newDocument: Document) => {
-    dataService.addDocument(newDocument);
+    console.log("Document uploaded callback received:", newDocument);
+    // Refresh the document list
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
     loadDocuments();
   };
 
@@ -67,10 +75,21 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
                 All documents related to case {caseId} ({filteredDocuments.length} documents)
               </CardDescription>
             </div>
-            <Button onClick={() => setShowUpload(!showUpload)}>
-              <Upload className="h-4 w-4 mr-2" />
-              {showUpload ? 'Hide Upload' : 'Upload Documents'}
-            </Button>
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefresh}
+                className="flex items-center space-x-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                <span>Refresh</span>
+              </Button>
+              <Button onClick={() => setShowUpload(!showUpload)}>
+                <Upload className="h-4 w-4 mr-2" />
+                {showUpload ? 'Hide Upload' : 'Upload Documents'}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -118,6 +137,11 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
                             <User className="h-3 w-3" />
                             <span>{doc.uploadedBy}</span>
                           </div>
+                          {doc.content && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Content preview: {doc.content.substring(0, 100)}...
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

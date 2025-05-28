@@ -9,6 +9,7 @@ import CausalityAssessment from "./CausalityAssessment";
 import MedicalDisabilityAssessment from "./MedicalDisabilityAssessment";
 import FormActions from "./FormActions";
 import { dataService } from "@/services/dataService";
+import { authService } from "@/services/authService";
 import { Document } from "@/types";
 
 interface EvaluationFormProps {
@@ -43,12 +44,18 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
   });
 
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    loadDocuments();
+  }, [caseId, refreshKey]);
+
+  const loadDocuments = () => {
     const allDocuments = dataService.getDocuments();
     const caseDocuments = allDocuments.filter(doc => doc.caseId === caseId);
+    console.log("EvaluationForm loading documents for case:", caseId, "Found:", caseDocuments.length);
     setDocuments(caseDocuments);
-  }, [caseId]);
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -56,13 +63,27 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
 
   const handleAcceptSuggestion = (field: string, value: string) => {
     handleInputChange(field, value);
+    toast.success("AI suggestion applied to form");
   };
 
   const handleRejectSuggestion = (field: string) => {
     console.log("Rejected suggestion for field:", field);
+    toast.info("AI suggestion rejected");
   };
 
   const handleSave = () => {
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      authService.logActivity(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        'SAVE_EVALUATION',
+        caseId,
+        undefined,
+        'Saved evaluation form as draft'
+      );
+    }
     toast.success("Evaluation saved as draft");
   };
 
@@ -74,6 +95,19 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
     if (missingFields.length > 0) {
       toast.error("Please complete all required fields");
       return;
+    }
+    
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      authService.logActivity(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        'SUBMIT_EVALUATION',
+        caseId,
+        undefined,
+        'Submitted medical evaluation form'
+      );
     }
     
     toast.success("Evaluation submitted successfully");
@@ -104,6 +138,7 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
             {documents.length > 0 && (
               <span className="block mt-1 text-sm text-green-600">
                 Based on {documents.length} uploaded document{documents.length !== 1 ? 's' : ''}
+                {documents.map(doc => ` • ${doc.name}`).join('')}
               </span>
             )}
           </CardDescription>

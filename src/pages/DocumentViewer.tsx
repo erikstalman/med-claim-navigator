@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, ZoomIn, ZoomOut, RotateCw, Search } from "lucide-react";
+import { ArrowLeft, Download, ZoomIn, ZoomOut, RotateCw, FileText } from "lucide-react";
 import AIDocumentChat from "@/components/AIDocumentChat";
 import { dataService } from "@/services/dataService";
 import { Document } from "@/types";
@@ -21,6 +21,7 @@ const DocumentViewer = () => {
     if (documentId) {
       const documents = dataService.getDocuments();
       const foundDocument = documents.find(d => d.id === documentId);
+      console.log("Looking for document:", documentId, "Found:", foundDocument);
       if (foundDocument) {
         setDocument(foundDocument);
       }
@@ -114,30 +115,38 @@ const DocumentViewer = () => {
           <Card className="h-full">
             <CardContent className="h-full p-6">
               <div 
-                className="w-full h-full bg-white border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center"
+                className="w-full h-full bg-white border rounded-lg overflow-auto"
                 style={{
                   transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
                   transformOrigin: 'center center'
                 }}
               >
-                <div className="text-center text-gray-500">
-                  <div className="w-24 h-32 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                    <Search className="h-8 w-8 text-gray-400" />
+                {document.content ? (
+                  <div className="p-6 text-sm leading-relaxed">
+                    <div className="flex items-center mb-4 pb-2 border-b">
+                      <FileText className="h-5 w-5 text-blue-600 mr-2" />
+                      <h2 className="text-lg font-semibold text-gray-900">{document.name}</h2>
+                    </div>
+                    <div className="whitespace-pre-wrap font-mono text-gray-800">
+                      {document.content}
+                    </div>
                   </div>
-                  <h3 className="text-lg font-medium mb-2">Document Preview</h3>
-                  <p className="text-sm">
-                    {document.name}
-                  </p>
-                  <p className="text-xs mt-2 text-gray-400">
-                    Page 1 of {document.pages}
-                  </p>
-                  <p className="text-xs mt-1 text-gray-400">
-                    File: {document.name}
-                  </p>
-                  <p className="text-xs mt-1 text-gray-400">
-                    Uploaded: {document.uploadDate} by {document.uploadedBy}
-                  </p>
-                </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-center text-gray-500">
+                    <div>
+                      <div className="w-24 h-32 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
+                        <FileText className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-medium mb-2">Document Preview</h3>
+                      <p className="text-sm">
+                        {document.name}
+                      </p>
+                      <p className="text-xs mt-2 text-gray-400">
+                        No content available for preview
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
