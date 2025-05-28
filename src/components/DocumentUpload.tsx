@@ -201,32 +201,6 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
     fileInputRef.current?.click();
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-    
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    const validFiles = validateFiles(droppedFiles);
-    
-    if (validFiles.length > 0) {
-      setFiles(prev => [...prev, ...validFiles]);
-      toast.success(`${validFiles.length} file(s) added successfully`);
-    }
-  };
-
   return (
     <Card>
       <CardHeader>
