@@ -1,71 +1,39 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { FileText, Download, Eye, Search, Calendar, User } from "lucide-react";
-
-interface Document {
-  id: string;
-  name: string;
-  type: string;
-  uploadDate: string;
-  uploadedBy: string;
-  size: string;
-  pages: number;
-  category: string;
-  caseId: string;
-}
+import { FileText, Download, Eye, Search, Calendar, User, Upload } from "lucide-react";
+import { dataService } from "@/services/dataService";
+import { Document } from "@/types";
+import DocumentUpload from "./DocumentUpload";
 
 interface DocumentListProps {
   caseId: string;
-  documents?: Document[];
 }
 
-const DocumentList = ({ caseId, documents = [] }: DocumentListProps) => {
+const DocumentList = ({ caseId }: DocumentListProps) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [showUpload, setShowUpload] = useState(false);
 
-  // Default documents if none provided
-  const defaultDocuments: Document[] = [
-    {
-      id: "DOC001",
-      name: "Medical Records - Emergency Room",
-      type: "Medical Report",
-      uploadDate: "2024-01-20",
-      uploadedBy: "Dr. Michael Smith",
-      size: "2.3 MB",
-      pages: 15,
-      category: "medical",
-      caseId: caseId
-    },
-    {
-      id: "DOC002",
-      name: "X-Ray Results",
-      type: "Diagnostic Image",
-      uploadDate: "2024-01-20",
-      uploadedBy: "Radiology Dept",
-      size: "12.1 MB",
-      pages: 8,
-      category: "imaging",
-      caseId: caseId
-    },
-    {
-      id: "DOC003",
-      name: "Police Report",
-      type: "Incident Report",
-      uploadDate: "2024-01-18",
-      uploadedBy: "SFPD Officer Johnson",
-      size: "1.8 MB",
-      pages: 6,
-      category: "legal",
-      caseId: caseId
-    }
-  ];
+  useEffect(() => {
+    loadDocuments();
+  }, [caseId]);
 
-  const documentsToShow = documents.length > 0 ? documents.filter(doc => doc.caseId === caseId) : defaultDocuments;
+  const loadDocuments = () => {
+    const allDocuments = dataService.getDocuments();
+    const caseDocuments = allDocuments.filter(doc => doc.caseId === caseId);
+    setDocuments(caseDocuments);
+  };
+
+  const handleDocumentUploaded = (newDocument: Document) => {
+    dataService.addDocument(newDocument);
+    loadDocuments();
+  };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -73,6 +41,7 @@ const DocumentList = ({ caseId, documents = [] }: DocumentListProps) => {
       case "imaging": return "bg-purple-100 text-purple-800";
       case "legal": return "bg-red-100 text-red-800";
       case "treatment": return "bg-green-100 text-green-800";
+      case "patient-claim": return "bg-orange-100 text-orange-800";
       case "administrative": return "bg-gray-100 text-gray-800";
       default: return "bg-gray-100 text-gray-800";
     }
@@ -82,7 +51,7 @@ const DocumentList = ({ caseId, documents = [] }: DocumentListProps) => {
     return <FileText className="h-4 w-4" />;
   };
 
-  const filteredDocuments = documentsToShow.filter(doc =>
+  const filteredDocuments = documents.filter(doc =>
     doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -91,12 +60,26 @@ const DocumentList = ({ caseId, documents = [] }: DocumentListProps) => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Case Documents</CardTitle>
-          <CardDescription>
-            All documents related to case {caseId} ({filteredDocuments.length} documents)
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Case Documents</CardTitle>
+              <CardDescription>
+                All documents related to case {caseId} ({filteredDocuments.length} documents)
+              </CardDescription>
+            </div>
+            <Button onClick={() => setShowUpload(!showUpload)}>
+              <Upload className="h-4 w-4 mr-2" />
+              {showUpload ? 'Hide Upload' : 'Upload Documents'}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
+          {showUpload && (
+            <div className="mb-6">
+              <DocumentUpload caseId={caseId} onDocumentUploaded={handleDocumentUploaded} />
+            </div>
+          )}
+
           <div className="relative mb-4">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
@@ -171,7 +154,16 @@ const DocumentList = ({ caseId, documents = [] }: DocumentListProps) => {
           {filteredDocuments.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>No documents found matching your search.</p>
+              <p>No documents found for this case.</p>
+              {!showUpload && (
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => setShowUpload(true)}
+                >
+                  Upload Documents
+                </Button>
+              )}
             </div>
           )}
         </CardContent>

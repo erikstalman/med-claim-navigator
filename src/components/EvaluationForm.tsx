@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -8,6 +8,8 @@ import MissingInfoAlert from "./MissingInfoAlert";
 import CausalityAssessment from "./CausalityAssessment";
 import MedicalDisabilityAssessment from "./MedicalDisabilityAssessment";
 import FormActions from "./FormActions";
+import { dataService } from "@/services/dataService";
+import { Document } from "@/types";
 
 interface EvaluationFormProps {
   caseId: string;
@@ -40,12 +42,13 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
     futureDisability: ""
   });
 
-  // Mock documents for the case
-  const mockDocuments = [
-    { id: "DOC001", name: "Medical Records - Emergency Room", category: "medical" },
-    { id: "DOC003", name: "Police Report", category: "legal" },
-    { id: "DOC002", name: "X-Ray Results", category: "imaging" }
-  ];
+  const [documents, setDocuments] = useState<Document[]>([]);
+
+  useEffect(() => {
+    const allDocuments = dataService.getDocuments();
+    const caseDocuments = allDocuments.filter(doc => doc.caseId === caseId);
+    setDocuments(caseDocuments);
+  }, [caseId]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -79,12 +82,12 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
   return (
     <div className="space-y-6">
       {/* Missing Information Alert */}
-      <MissingInfoAlert caseId={caseId} documents={mockDocuments} />
+      <MissingInfoAlert caseId={caseId} documents={documents} />
       
       {/* AI Form Suggestions */}
       <AIFormSuggestions
         caseId={caseId}
-        documents={mockDocuments}
+        documents={documents}
         currentFormData={formData}
         onAcceptSuggestion={handleAcceptSuggestion}
         onRejectSuggestion={handleRejectSuggestion}
@@ -98,6 +101,11 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
           </CardTitle>
           <CardDescription>
             Complete the causality assessment and medical disability evaluation for case {caseId}
+            {documents.length > 0 && (
+              <span className="block mt-1 text-sm text-green-600">
+                Based on {documents.length} uploaded document{documents.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">

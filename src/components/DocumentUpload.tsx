@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, X, FileText, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { Document } from "@/types";
 
 interface DocumentUploadProps {
   caseId: string;
-  onDocumentUploaded?: (newDocument: any) => void;
+  onDocumentUploaded?: (newDocument: Document) => void;
 }
 
 const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => {
@@ -103,18 +103,19 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       files.forEach((file, index) => {
-        const newDocument = {
-          id: `DOC${String(Date.now() + index)}`,
+        const newDocument: Document = {
+          id: `DOC${Date.now() + index}`,
           name: file.name.replace(/\.[^/.]+$/, ""),
           type: documentTypes.find(t => t.value === documentType)?.label || "Document",
           uploadDate: new Date().toISOString().split('T')[0],
           uploadedBy: "Admin User",
+          uploadedById: "current-user-id",
           size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
           pages: Math.floor(Math.random() * 20) + 1,
           category: documentType,
           caseId: caseId,
-          fileName: file.name,
-          description: description
+          filePath: `/uploads/${caseId}/${file.name}`,
+          content: `Content of ${file.name} - extracted text would go here`
         };
 
         console.log("Document uploaded:", newDocument);
