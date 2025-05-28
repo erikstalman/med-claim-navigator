@@ -60,6 +60,8 @@ export interface PatientCase {
   description?: string;
   lastUpdated: string;
   createdBy: string;
+  insurancePolicy?: string;
+  accidentLocation?: string;
 }
 
 export interface Document {
