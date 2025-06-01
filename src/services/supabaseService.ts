@@ -130,7 +130,6 @@ export class SupabaseService {
     const { error } = await supabase
       .from('patient_cases')
       .insert({
-        id: case_.id,
         patient_name: case_.patientName,
         patient_age: case_.patientAge,
         patient_gender: case_.patientGender,
@@ -140,8 +139,8 @@ export class SupabaseService {
         accident_date: case_.accidentDate,
         accident_location: case_.accidentLocation,
         submission_date: case_.submissionDate,
-        status: case_.status,
-        priority: case_.priority,
+        status: case_.status as any,
+        priority: case_.priority as any,
         injury_type: case_.injuryType,
         description: case_.description,
         doctor_id: case_.doctorId,
@@ -170,8 +169,8 @@ export class SupabaseService {
         accident_date: case_.accidentDate,
         accident_location: case_.accidentLocation,
         submission_date: case_.submissionDate,
-        status: case_.status,
-        priority: case_.priority,
+        status: case_.status as any,
+        priority: case_.priority as any,
         injury_type: case_.injuryType,
         description: case_.description,
         doctor_id: case_.doctorId,
@@ -248,10 +247,9 @@ export class SupabaseService {
 
     // Create document record
     const documentData = {
-      id: `DOC-${Date.now()}`,
       name: file.name,
       type: file.type,
-      category: category,
+      category: category as any,
       case_id: caseId,
       file_path: uploadData.path,
       file_url: publicUrl,
@@ -268,7 +266,7 @@ export class SupabaseService {
 
     if (error) throw error;
 
-    return documentData;
+    return { ...documentData, id: `DOC-${Date.now()}` };
   }
 
   async deleteDocument(documentId: string) {
@@ -319,11 +317,10 @@ export class SupabaseService {
     const { error } = await supabase
       .from('activity_logs')
       .insert({
-        id: `LOG-${Date.now()}`,
         user_id: activity.userId,
         user_name: activity.userName,
-        user_role: activity.userRole,
-        action: activity.action,
+        user_role: activity.userRole as any,
+        action: activity.action as any,
         case_id: activity.caseId,
         case_name: activity.caseName,
         details: activity.details,
@@ -383,12 +380,11 @@ export class SupabaseService {
     const { error } = await supabase
       .from('chat_messages')
       .insert({
-        id: `MSG-${Date.now()}`,
         case_id: message.caseId,
         sender_id: message.senderId,
         sender_name: message.senderName,
-        sender_role: message.senderRole,
-        recipient_role: message.recipientRole,
+        sender_role: message.senderRole as any,
+        recipient_role: message.recipientRole as any,
         message: message.message
       });
 
