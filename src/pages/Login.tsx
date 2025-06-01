@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Stethoscope, Shield, Settings } from "lucide-react";
-import { authService } from "@/services/authService";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -23,40 +24,16 @@ const Login = () => {
 
     setIsLoading(true);
     
-    // Simulate login delay
-    setTimeout(() => {
-      const user = authService.login(credentials.email, credentials.password);
-      
-      if (user) {
-        if (expectedRole && user.role !== expectedRole) {
-          toast.error(`Invalid credentials for ${expectedRole} login`);
-          authService.logout();
-          setIsLoading(false);
-          return;
-        }
-
-        toast.success(`Welcome back, ${user.name}!`);
-        
-        // Navigate based on role
-        switch (user.role) {
-          case 'doctor':
-            navigate("/doctor");
-            break;
-          case 'admin':
-            navigate("/admin");
-            break;
-          case 'system-admin':
-            navigate("/system-admin");
-            break;
-          default:
-            navigate("/");
-        }
-      } else {
-        toast.error("Invalid email or password");
-      }
-      
+    try {
+      await signIn(credentials.email, credentials.password);
+      toast.success("Successfully logged in!");
+      navigate("/");
+    } catch (error: any) {
+      console.error("Login error:", error);
+      toast.error(error.message || "Invalid email or password");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -177,9 +154,8 @@ const Login = () => {
 
           <div className="mt-4 text-xs text-gray-600 space-y-1">
             <p><strong>Demo Credentials:</strong></p>
-            <p>Doctor: doctor@healthcare.com / doctor123</p>
-            <p>Admin: admin@insurance.com / admin123</p>
-            <p>System: sysadmin@insurance.com / sysadmin123</p>
+            <p>Try creating a new account first using the Sign Up tab in /auth</p>
+            <p>Or contact your system administrator for demo credentials</p>
           </div>
         </CardContent>
       </Card>
