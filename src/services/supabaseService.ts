@@ -130,6 +130,7 @@ export class SupabaseService {
     const { error } = await supabase
       .from('patient_cases')
       .insert({
+        id: case_.id,
         patient_name: case_.patientName,
         patient_age: case_.patientAge,
         patient_gender: case_.patientGender,
@@ -245,8 +246,11 @@ export class SupabaseService {
       content = await file.text();
     }
 
+    const documentId = `DOC-${Date.now()}`;
+
     // Create document record
     const documentData = {
+      id: documentId,
       name: file.name,
       type: file.type,
       category: category as any,
@@ -266,7 +270,7 @@ export class SupabaseService {
 
     if (error) throw error;
 
-    return { ...documentData, id: `DOC-${Date.now()}` };
+    return { ...documentData, id: documentId };
   }
 
   async deleteDocument(documentId: string) {
@@ -314,9 +318,12 @@ export class SupabaseService {
 
   // Activity Logs
   async logActivity(activity: Omit<ActivityLog, 'id' | 'timestamp'>) {
+    const logId = `LOG-${Date.now()}`;
+
     const { error } = await supabase
       .from('activity_logs')
       .insert({
+        id: logId,
         user_id: activity.userId,
         user_name: activity.userName,
         user_role: activity.userRole as any,
@@ -377,9 +384,12 @@ export class SupabaseService {
   }
 
   async sendChatMessage(message: Omit<ChatMessage, 'id' | 'timestamp' | 'isRead'>) {
+    const messageId = `MSG-${Date.now()}`;
+
     const { error } = await supabase
       .from('chat_messages')
       .insert({
+        id: messageId,
         case_id: message.caseId,
         sender_id: message.senderId,
         sender_name: message.senderName,
