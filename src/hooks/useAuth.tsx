@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,14 +26,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile data
+          // Fetch user profile data with a small delay to avoid recursion
           setTimeout(async () => {
             try {
+              console.log('Fetching profile for user:', session.user.id);
               const profileData = await supabaseService.getCurrentProfile();
+              console.log('Profile data received:', profileData);
               if (profileData) {
                 setProfile({
                   id: profileData.id,
@@ -50,21 +52,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
             } catch (error) {
               console.error('Error fetching profile:', error);
+              // Don't set profile to null on error, keep trying
             }
-          }, 0);
+            setLoading(false);
+          }, 100);
         } else {
           setProfile(null);
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (!session) {
+      console.log('Initial session check:', session?.user?.email);
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+      } else {
         setLoading(false);
       }
     });

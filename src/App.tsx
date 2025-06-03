@@ -20,7 +20,11 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   const { user, profile, loading } = useAuth();
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
   }
 
   if (!user || !profile) {
@@ -38,7 +42,11 @@ function AppRoutes() {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
   }
 
   return (
@@ -50,12 +58,12 @@ function AppRoutes() {
         user ? <Navigate to="/" /> : <Login />
       } />
       <Route path="/" element={
-        <ProtectedRoute>
-          {profile?.role === 'admin' ? <AdminDashboard /> :
-           profile?.role === 'doctor' ? <DoctorDashboard /> :
-           profile?.role === 'system-admin' ? <SystemAdminDashboard /> :
-           <Index />}
-        </ProtectedRoute>
+        user && profile ? (
+          profile.role === 'admin' ? <Navigate to="/admin" /> :
+          profile.role === 'doctor' ? <Navigate to="/doctor" /> :
+          profile.role === 'system-admin' ? <Navigate to="/system-admin" /> :
+          <Index />
+        ) : <Index />
       } />
       <Route path="/admin" element={
         <ProtectedRoute allowedRoles={['admin']}>
