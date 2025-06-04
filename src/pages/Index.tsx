@@ -9,6 +9,18 @@ const Index = () => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
 
+  const handleNavigation = (path: string, dashboardName: string) => {
+    console.log(`Attempting to navigate to ${path} (${dashboardName})`);
+    console.log('Current user:', user);
+    console.log('Current profile:', profile);
+    try {
+      navigate(path);
+      console.log(`Navigation to ${path} initiated`);
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -130,7 +142,7 @@ const Index = () => {
     );
   }
 
-  // Logged in user view - show navigation to all areas
+  // Logged in user view
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-16">
@@ -148,7 +160,7 @@ const Index = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 max-w-4xl mx-auto">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/doctor')}>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleNavigation('/doctor', 'Doctor Dashboard')}>
             <CardHeader className="text-center">
               <Stethoscope className="h-12 w-12 text-blue-600 mx-auto mb-4" />
               <CardTitle>Doctor Dashboard</CardTitle>
@@ -157,13 +169,16 @@ const Index = () => {
               <CardDescription className="text-center">
                 View and evaluate patient cases, upload documents, and provide medical assessments.
               </CardDescription>
-              <Button className="w-full mt-4" onClick={() => navigate('/doctor')}>
+              <Button className="w-full mt-4" onClick={(e) => {
+                e.stopPropagation();
+                handleNavigation('/doctor', 'Doctor Dashboard');
+              }}>
                 Access Doctor Dashboard
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin')}>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleNavigation('/admin', 'Admin Dashboard')}>
             <CardHeader className="text-center">
               <Shield className="h-12 w-12 text-green-600 mx-auto mb-4" />
               <CardTitle>Admin Dashboard</CardTitle>
@@ -172,13 +187,16 @@ const Index = () => {
               <CardDescription className="text-center">
                 Manage cases, assign doctors, monitor system activity, and oversee claim processing.
               </CardDescription>
-              <Button className="w-full mt-4" onClick={() => navigate('/admin')}>
+              <Button className="w-full mt-4" onClick={(e) => {
+                e.stopPropagation();
+                handleNavigation('/admin', 'Admin Dashboard');
+              }}>
                 Access Admin Dashboard
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/system-admin')}>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleNavigation('/system-admin', 'System Admin Dashboard')}>
             <CardHeader className="text-center">
               <Settings className="h-12 w-12 text-purple-600 mx-auto mb-4" />
               <CardTitle>System Admin</CardTitle>
@@ -187,7 +205,10 @@ const Index = () => {
               <CardDescription className="text-center">
                 Manage users, configure AI rules, and oversee platform administration.
               </CardDescription>
-              <Button className="w-full mt-4" onClick={() => navigate('/system-admin')}>
+              <Button className="w-full mt-4" onClick={(e) => {
+                e.stopPropagation();
+                handleNavigation('/system-admin', 'System Admin Dashboard');
+              }}>
                 Access System Dashboard
               </Button>
             </CardContent>
