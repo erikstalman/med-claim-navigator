@@ -148,7 +148,7 @@ const Index = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 max-w-4xl mx-auto">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/doctor')}>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <Stethoscope className="h-12 w-12 text-blue-600 mx-auto mb-4" />
               <CardTitle>Doctor Dashboard</CardTitle>
@@ -163,7 +163,7 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin')}>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <Shield className="h-12 w-12 text-green-600 mx-auto mb-4" />
               <CardTitle>Admin Dashboard</CardTitle>
@@ -178,7 +178,7 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/system-admin')}>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <Settings className="h-12 w-12 text-purple-600 mx-auto mb-4" />
               <CardTitle>System Admin</CardTitle>
