@@ -3,25 +3,43 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Heart, Shield, Brain, Database, Users, FileText, Stethoscope, Settings } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 
 const Index = () => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    console.log('Index component mounted/updated');
+    console.log('Current location:', location.pathname);
+    console.log('User state:', !!user);
+    console.log('Profile state:', !!profile);
+  }, [location.pathname, user, profile]);
 
   const handleNavigation = (path: string, dashboardName: string) => {
+    console.log(`=== NAVIGATION DEBUG ===`);
     console.log(`Attempting to navigate to ${path} (${dashboardName})`);
-    console.log('Current user:', user);
-    console.log('Current profile:', profile);
+    console.log('Current user:', !!user, user?.email);
+    console.log('Current profile:', !!profile, profile?.role);
+    console.log('Current location before navigation:', location.pathname);
+    
     try {
       navigate(path);
-      console.log(`Navigation to ${path} initiated`);
+      console.log(`Navigation to ${path} initiated successfully`);
+      
+      // Check if navigation actually happened after a short delay
+      setTimeout(() => {
+        console.log('Location after navigation attempt:', window.location.pathname);
+      }, 100);
     } catch (error) {
       console.error('Navigation error:', error);
     }
   };
 
   if (!user) {
+    console.log('Rendering landing page (no user)');
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="container mx-auto px-4 py-16">
@@ -142,6 +160,7 @@ const Index = () => {
     );
   }
 
+  console.log('Rendering logged in user view');
   // Logged in user view
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
