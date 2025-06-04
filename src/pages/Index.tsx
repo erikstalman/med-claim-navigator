@@ -1,31 +1,13 @@
 
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Heart, Shield, Brain, Database, Users, FileText } from 'lucide-react';
+import { Heart, Shield, Brain, Database, Users, FileText, Stethoscope, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (user && profile) {
-      // Redirect based on user role
-      switch (profile.role) {
-        case 'admin':
-          navigate('/admin');
-          break;
-        case 'doctor':
-          navigate('/doctor');
-          break;
-        case 'system-admin':
-          navigate('/system-admin');
-          break;
-      }
-    }
-  }, [user, profile, navigate]);
 
   if (!user) {
     return (
@@ -148,19 +130,76 @@ const Index = () => {
     );
   }
 
+  // Logged in user view - show navigation to all areas
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Welcome, {profile?.name}</CardTitle>
-          <CardDescription>Redirecting you to your dashboard...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={signOut} variant="outline" className="w-full">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-16">
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center mb-6">
+            <Heart className="h-12 w-12 text-blue-600 mr-3" />
+            <h1 className="text-4xl font-bold text-gray-900">MedClaim Navigator</h1>
+          </div>
+          <p className="text-xl text-gray-600 mb-4">
+            Welcome, {profile?.name || user.email}!
+          </p>
+          <p className="text-lg text-gray-500 mb-8">
+            Choose your dashboard to explore the platform
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 max-w-4xl mx-auto">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/doctor')}>
+            <CardHeader className="text-center">
+              <Stethoscope className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+              <CardTitle>Doctor Dashboard</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="text-center">
+                View and evaluate patient cases, upload documents, and provide medical assessments.
+              </CardDescription>
+              <Button className="w-full mt-4" onClick={() => navigate('/doctor')}>
+                Access Doctor Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin')}>
+            <CardHeader className="text-center">
+              <Shield className="h-12 w-12 text-green-600 mx-auto mb-4" />
+              <CardTitle>Admin Dashboard</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="text-center">
+                Manage cases, assign doctors, monitor system activity, and oversee claim processing.
+              </CardDescription>
+              <Button className="w-full mt-4" onClick={() => navigate('/admin')}>
+                Access Admin Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/system-admin')}>
+            <CardHeader className="text-center">
+              <Settings className="h-12 w-12 text-purple-600 mx-auto mb-4" />
+              <CardTitle>System Admin</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="text-center">
+                Manage users, configure AI rules, and oversee platform administration.
+              </CardDescription>
+              <Button className="w-full mt-4" onClick={() => navigate('/system-admin')}>
+                Access System Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="text-center">
+          <Button onClick={signOut} variant="outline" size="lg">
             Sign Out
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

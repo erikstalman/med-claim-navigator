@@ -16,8 +16,8 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
-  const { user, profile, loading } = useAuth();
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -27,19 +27,15 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
     );
   }
 
-  if (!user || !profile) {
+  if (!user) {
     return <Navigate to="/auth" />;
-  }
-
-  if (allowedRoles && !allowedRoles.includes(profile.role)) {
-    return <Navigate to="/" />;
   }
 
   return <>{children}</>;
 }
 
 function AppRoutes() {
-  const { user, profile, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -57,26 +53,19 @@ function AppRoutes() {
       <Route path="/login" element={
         user ? <Navigate to="/" /> : <Login />
       } />
-      <Route path="/" element={
-        user && profile ? (
-          profile.role === 'admin' ? <Navigate to="/admin" /> :
-          profile.role === 'doctor' ? <Navigate to="/doctor" /> :
-          profile.role === 'system-admin' ? <Navigate to="/system-admin" /> :
-          <Index />
-        ) : <Index />
-      } />
+      <Route path="/" element={<Index />} />
       <Route path="/admin" element={
-        <ProtectedRoute allowedRoles={['admin']}>
+        <ProtectedRoute>
           <AdminDashboard />
         </ProtectedRoute>
       } />
       <Route path="/doctor" element={
-        <ProtectedRoute allowedRoles={['doctor']}>
+        <ProtectedRoute>
           <DoctorDashboard />
         </ProtectedRoute>
       } />
       <Route path="/system-admin" element={
-        <ProtectedRoute allowedRoles={['system-admin']}>
+        <ProtectedRoute>
           <SystemAdminDashboard />
         </ProtectedRoute>
       } />
