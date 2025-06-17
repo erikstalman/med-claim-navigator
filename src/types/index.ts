@@ -76,6 +76,7 @@ export interface Document {
   category: string;
   caseId: string;
   filePath: string;
+  fileUrl?: string; // optional file URL for viewing
   content?: string; // extracted text for AI processing
 }
 
