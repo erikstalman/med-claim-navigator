@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, ZoomIn, ZoomOut, RotateCw, FileText } from "lucide-react";
+import { ArrowLeft, Download, ZoomIn, ZoomOut, RotateCw, FileText, AlertCircle } from "lucide-react";
 import AIDocumentChat from "@/components/AIDocumentChat";
 import { dataService } from "@/services/dataService";
 import { Document } from "@/types";
@@ -32,6 +32,22 @@ const DocumentViewer = () => {
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 25, 200));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 25, 50));
   const handleRotate = () => setRotation(prev => (prev + 90) % 360);
+
+  const isPDF = (document: Document) => {
+    return document.type?.toLowerCase().includes('pdf') || document.name?.toLowerCase().endsWith('.pdf');
+  };
+
+  const isImage = (document: Document) => {
+    return document.type?.toLowerCase().includes('image') || 
+           /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(document.name || '');
+  };
+
+  const isTextDocument = (document: Document) => {
+    return document.type?.toLowerCase().includes('text') || 
+           document.type?.toLowerCase().includes('word') ||
+           document.type?.toLowerCase().includes('document') ||
+           /\.(txt|doc|docx|rtf)$/i.test(document.name || '');
+  };
 
   if (loading) {
     return (
@@ -62,6 +78,116 @@ const DocumentViewer = () => {
       case "administrative": return "bg-gray-100 text-gray-800";
       default: return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const renderDocumentContent = () => {
+    if (isPDF(document)) {
+      // For PDF files, show an embedded PDF viewer if file URL is available
+      if (document.fileUrl) {
+        return (
+          <iframe
+            src={`${document.fileUrl}#zoom=${zoom}`}
+            className="w-full h-full border-0"
+            style={{
+              transform: `rotate(${rotation}deg)`,
+              transformOrigin: 'center center'
+            }}
+            title={document.name}
+          />
+        );
+      } else {
+        // Fallback for PDF without file URL
+        return (
+          <div className="flex items-center justify-center h-full text-center">
+            <div>
+              <FileText className="h-16 w-16 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">PDF Document</h3>
+              <p className="text-sm text-gray-600 mb-4">{document.name}</p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
+                  <p className="text-sm text-yellow-800">
+                    PDF preview not available. The original file needs to be uploaded to view the content.
+                  </p>
+                </div>
+              </div>
+              {document.content && (
+                <div className="text-left bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">Document Information:</h4>
+                  <pre className="text-xs text-gray-700 whitespace-pre-wrap">{document.content}</pre>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+    }
+
+    if (isImage(document)) {
+      if (document.fileUrl) {
+        return (
+          <div className="flex items-center justify-center h-full">
+            <img
+              src={document.fileUrl}
+              alt={document.name}
+              className="max-w-full max-h-full object-contain"
+              style={{
+                transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+                transformOrigin: 'center center'
+              }}
+            />
+          </div>
+        );
+      }
+    }
+
+    if (isTextDocument(document) && document.content) {
+      return (
+        <div className="p-6 h-full overflow-auto">
+          <div className="flex items-center mb-4 pb-2 border-b">
+            <FileText className="h-5 w-5 text-blue-600 mr-2" />
+            <h2 className="text-lg font-semibold text-gray-900">{document.name}</h2>
+          </div>
+          <div 
+            className="whitespace-pre-wrap text-gray-800 leading-relaxed"
+            style={{
+              fontSize: `${zoom}%`,
+              transform: `rotate(${rotation}deg)`,
+              transformOrigin: 'top left'
+            }}
+          >
+            {document.content}
+          </div>
+        </div>
+      );
+    }
+
+    // Default fallback for unsupported file types
+    return (
+      <div className="flex items-center justify-center h-full text-center text-gray-500">
+        <div>
+          <div className="w-24 h-32 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
+            <FileText className="h-8 w-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium mb-2">Document Preview</h3>
+          <p className="text-sm mb-2">{document.name}</p>
+          <p className="text-xs text-gray-400 mb-4">
+            File type: {document.type}
+          </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              Preview not available for this file type. Use the download button to view the original file.
+            </p>
+          </div>
+          {document.content && (
+            <div className="mt-4 text-left bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium mb-2">Document Information:</h4>
+              <pre className="text-xs text-gray-700 whitespace-pre-wrap">{document.content}</pre>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -113,40 +239,9 @@ const DocumentViewer = () => {
         {/* Document Viewer */}
         <div className="flex-1 p-6">
           <Card className="h-full">
-            <CardContent className="h-full p-6">
-              <div 
-                className="w-full h-full bg-white border rounded-lg overflow-auto"
-                style={{
-                  transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-                  transformOrigin: 'center center'
-                }}
-              >
-                {document.content ? (
-                  <div className="p-6 text-sm leading-relaxed">
-                    <div className="flex items-center mb-4 pb-2 border-b">
-                      <FileText className="h-5 w-5 text-blue-600 mr-2" />
-                      <h2 className="text-lg font-semibold text-gray-900">{document.name}</h2>
-                    </div>
-                    <div className="whitespace-pre-wrap font-mono text-gray-800">
-                      {document.content}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-center text-gray-500">
-                    <div>
-                      <div className="w-24 h-32 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                        <FileText className="h-8 w-8 text-gray-400" />
-                      </div>
-                      <h3 className="text-lg font-medium mb-2">Document Preview</h3>
-                      <p className="text-sm">
-                        {document.name}
-                      </p>
-                      <p className="text-xs mt-2 text-gray-400">
-                        No content available for preview
-                      </p>
-                    </div>
-                  </div>
-                )}
+            <CardContent className="h-full p-0">
+              <div className="w-full h-full bg-white border rounded-lg overflow-hidden">
+                {renderDocumentContent()}
               </div>
             </CardContent>
           </Card>
