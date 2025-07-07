@@ -10,9 +10,30 @@ export interface ProcessedDocument {
   pageCount: number;
   textContent?: string;
   imageDataUrl?: string;
+  detectedType?: string; // Add detected type
 }
 
 export class DocumentProcessor {
+  static detectFileType(file: File): string {
+    // Check file extension as primary method
+    const fileName = (file.name || '').toLowerCase();
+    
+    if (fileName.endsWith('.pdf')) {
+      return 'application/pdf';
+    } else if (fileName.endsWith('.docx')) {
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    } else if (fileName.endsWith('.doc')) {
+      return 'application/msword';
+    } else if (fileName.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)) {
+      return 'image/' + fileName.split('.').pop();
+    } else if (fileName.endsWith('.txt')) {
+      return 'text/plain';
+    }
+    
+    // Fallback to file.type if available
+    return file.type || 'application/octet-stream';
+  }
+
   static async processPDF(file: File): Promise<ProcessedDocument> {
     try {
       console.log('Processing PDF:', file.name, 'Size:', file.size);
@@ -60,7 +81,8 @@ export class DocumentProcessor {
         content: fullText.trim() || 'PDF content could not be extracted',
         pageCount,
         textContent: fullText.trim(),
-        imageDataUrl
+        imageDataUrl,
+        detectedType: 'application/pdf'
       };
     } catch (error) {
       console.error('Error processing PDF:', error);
@@ -77,7 +99,8 @@ export class DocumentProcessor {
       return {
         content: result.value || 'DOCX content could not be extracted',
         pageCount: 1, // DOCX doesn't have fixed pages
-        textContent: result.value
+        textContent: result.value,
+        detectedType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       };
     } catch (error) {
       console.error('Error processing DOCX:', error);
@@ -86,22 +109,23 @@ export class DocumentProcessor {
   }
   
   static async processDocument(file: File): Promise<ProcessedDocument> {
-    // Add null/undefined checks for file.type and file.name
-    const fileType = (file.type || '').toLowerCase();
+    // Detect the actual file type
+    const detectedType = this.detectFileType(file);
     const fileName = (file.name || '').toLowerCase();
     
-    console.log('Processing document:', fileName, 'Type:', fileType);
+    console.log('Processing document:', fileName, 'Detected Type:', detectedType);
     
-    if (fileType.includes('pdf') || fileName.endsWith('.pdf')) {
+    if (detectedType.includes('pdf') || fileName.endsWith('.pdf')) {
       return this.processPDF(file);
-    } else if (fileType.includes('word') || fileType.includes('document') || 
+    } else if (detectedType.includes('word') || detectedType.includes('document') || 
                fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
       return this.processDocx(file);
     } else {
       // For other file types, just return basic info
       return {
-        content: `Document: ${file.name || 'Unknown'}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type || 'Unknown'}\n\nThis document type is supported for storage but preview may be limited.`,
-        pageCount: 1
+        content: `Document: ${file.name || 'Unknown'}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${detectedType}\n\nThis document type is supported for storage but preview may be limited.`,
+        pageCount: 1,
+        detectedType
       };
     }
   }

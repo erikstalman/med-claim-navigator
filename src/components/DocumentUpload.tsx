@@ -81,16 +81,17 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
         name: file.name,
         contentLength: processedDoc.content?.length,
         hasImage: !!processedDoc.imageDataUrl,
-        pageCount: processedDoc.pageCount
+        pageCount: processedDoc.pageCount,
+        detectedType: processedDoc.detectedType
       });
       
       updateFileStatus(file.id, { progress: 75 });
       
-      // Create document record
+      // Create document record with proper type
       const document: Document = {
         id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: file.name,
-        type: file.type || 'application/octet-stream',
+        type: processedDoc.detectedType || file.type || 'application/octet-stream', // Use detected type
         uploadDate: new Date().toLocaleDateString(),
         uploadedBy: 'Current User', // This should come from auth context
         uploadedById: '1', // This should come from auth context
@@ -103,7 +104,7 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
         fileUrl: processedDoc.imageDataUrl // For PDF preview images
       };
 
-      console.log('Saving document to dataService:', document.id);
+      console.log('Saving document to dataService:', document.id, 'Type:', document.type);
       // Save to data service
       dataService.addDocument(document);
       

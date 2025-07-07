@@ -1,4 +1,3 @@
-
 import { FileText, AlertCircle, RefreshCw } from "lucide-react";
 import { Document } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -13,19 +12,24 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   console.log('Rendering document:', document.name, 'Type:', document.type, 'Has content:', !!document.content, 'Has fileUrl:', !!document.fileUrl);
 
   const isPDF = (document: Document) => {
-    return document.type?.toLowerCase().includes('pdf') || document.name?.toLowerCase().endsWith('.pdf');
+    const type = (document.type || '').toLowerCase();
+    const name = (document.name || '').toLowerCase();
+    return type.includes('pdf') || name.endsWith('.pdf') || type === 'application/pdf';
   };
 
   const isImage = (document: Document) => {
-    return document.type?.toLowerCase().includes('image') || 
-           /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(document.name || '');
+    const type = (document.type || '').toLowerCase();
+    const name = (document.name || '').toLowerCase();
+    return type.includes('image') || /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(name);
   };
 
   const isTextDocument = (document: Document) => {
-    return document.type?.toLowerCase().includes('text') || 
-           document.type?.toLowerCase().includes('word') ||
-           document.type?.toLowerCase().includes('document') ||
-           /\.(txt|doc|docx|rtf)$/i.test(document.name || '');
+    const type = (document.type || '').toLowerCase();
+    const name = (document.name || '').toLowerCase();
+    return type.includes('text') || 
+           type.includes('word') ||
+           type.includes('document') ||
+           /\.(txt|doc|docx|rtf)$/i.test(name);
   };
 
   const renderPDFContent = () => {
