@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from "@/components/ui/button";
@@ -31,6 +30,7 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
   const [isUploading, setIsUploading] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
+    console.log('Files dropped:', acceptedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })));
     const newFiles: UploadFile[] = acceptedFiles.map(file => ({
       ...file,
       id: Math.random().toString(36).substr(2, 9),
@@ -72,10 +72,18 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
 
   const processAndUploadFile = async (file: UploadFile) => {
     try {
+      console.log('Starting to process file:', file.name);
       updateFileStatus(file.id, { status: 'processing', progress: 25 });
       
       // Process the document to extract content
       const processedDoc = await DocumentProcessor.processDocument(file);
+      console.log('Document processed successfully:', {
+        name: file.name,
+        contentLength: processedDoc.content?.length,
+        hasImage: !!processedDoc.imageDataUrl,
+        pageCount: processedDoc.pageCount
+      });
+      
       updateFileStatus(file.id, { progress: 75 });
       
       // Create document record
@@ -95,20 +103,21 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
         fileUrl: processedDoc.imageDataUrl // For PDF preview images
       };
 
+      console.log('Saving document to dataService:', document.id);
       // Save to data service
       dataService.addDocument(document);
       
       updateFileStatus(file.id, { status: 'completed', progress: 100 });
       onDocumentUploaded(document);
       
-      toast.success(`Document "${file.name}" uploaded successfully`);
+      toast.success(`Document "${file.name}" uploaded and processed successfully`);
     } catch (error) {
       console.error('Error processing document:', error);
       updateFileStatus(file.id, { 
         status: 'error', 
         error: error instanceof Error ? error.message : 'Failed to process document'
       });
-      toast.error(`Failed to upload "${file.name}"`);
+      toast.error(`Failed to upload "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
