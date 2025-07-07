@@ -26,43 +26,68 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   };
 
   const renderPDFContent = () => {
+    // If we have a preview image from processing, show it
     if (document.fileUrl) {
       return (
-        <iframe
-          src={`${document.fileUrl}#zoom=${zoom}`}
-          className="w-full h-full border-0"
-          style={{
-            transform: `rotate(${rotation}deg)`,
-            transformOrigin: 'center center'
-          }}
-          title={document.name}
-        />
+        <div className="flex items-center justify-center h-full">
+          <img
+            src={document.fileUrl}
+            alt={`Preview of ${document.name}`}
+            className="max-w-full max-h-full object-contain border"
+            style={{
+              transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+              transformOrigin: 'center center'
+            }}
+          />
+        </div>
       );
-    } else {
+    }
+    
+    // If we have extracted text content, show it in a document-like format
+    if (document.content) {
       return (
-        <div className="flex items-center justify-center h-full text-center">
-          <div>
-            <FileText className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">PDF Document</h3>
-            <p className="text-sm text-gray-600 mb-4">{document.name}</p>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-              <div className="flex items-center">
-                <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
-                <p className="text-sm text-yellow-800">
-                  PDF preview not available. The original file needs to be uploaded to view the content.
-                </p>
+        <div className="h-full overflow-auto bg-white">
+          <div className="max-w-4xl mx-auto p-8">
+            <div className="flex items-center mb-6 pb-4 border-b">
+              <FileText className="h-6 w-6 text-red-600 mr-3" />
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">{document.name}</h2>
+                <p className="text-sm text-gray-600">{document.pages} pages • {document.size}</p>
               </div>
             </div>
-            {document.content && (
-              <div className="text-left bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium mb-2">Document Information:</h4>
-                <pre className="text-xs text-gray-700 whitespace-pre-wrap">{document.content}</pre>
-              </div>
-            )}
+            <div 
+              className="prose prose-sm max-w-none text-gray-800 leading-relaxed whitespace-pre-wrap"
+              style={{
+                fontSize: `${Math.max(zoom / 100, 0.5)}em`,
+                transform: `rotate(${rotation}deg)`,
+                transformOrigin: 'top left'
+              }}
+            >
+              {document.content}
+            </div>
           </div>
         </div>
       );
     }
+
+    // Fallback for PDFs without processed content
+    return (
+      <div className="flex items-center justify-center h-full text-center">
+        <div>
+          <FileText className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">PDF Document</h3>
+          <p className="text-sm text-gray-600 mb-4">{document.name}</p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
+              <p className="text-sm text-yellow-800">
+                PDF content could not be processed. The document may need to be re-uploaded for full preview.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderImageContent = () => {
@@ -87,20 +112,25 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   const renderTextContent = () => {
     if (document.content) {
       return (
-        <div className="p-6 h-full overflow-auto">
-          <div className="flex items-center mb-4 pb-2 border-b">
-            <FileText className="h-5 w-5 text-blue-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-900">{document.name}</h2>
-          </div>
-          <div 
-            className="whitespace-pre-wrap text-gray-800 leading-relaxed"
-            style={{
-              fontSize: `${zoom}%`,
-              transform: `rotate(${rotation}deg)`,
-              transformOrigin: 'top left'
-            }}
-          >
-            {document.content}
+        <div className="h-full overflow-auto bg-white">
+          <div className="max-w-4xl mx-auto p-8">
+            <div className="flex items-center mb-6 pb-4 border-b">
+              <FileText className="h-6 w-6 text-blue-600 mr-3" />
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">{document.name}</h2>
+                <p className="text-sm text-gray-600">{document.type} • {document.size}</p>
+              </div>
+            </div>
+            <div 
+              className="prose prose-sm max-w-none text-gray-800 leading-relaxed whitespace-pre-wrap"
+              style={{
+                fontSize: `${Math.max(zoom / 100, 0.5)}em`,
+                transform: `rotate(${rotation}deg)`,
+                transformOrigin: 'top left'
+              }}
+            >
+              {document.content}
+            </div>
           </div>
         </div>
       );
@@ -122,20 +152,15 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
           </p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
-              Preview not available for this file type. Use the download button to view the original file.
+              This document type is not yet supported for preview. Please re-upload the document for processing.
             </p>
           </div>
-          {document.content && (
-            <div className="mt-4 text-left bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-medium mb-2">Document Information:</h4>
-              <pre className="text-xs text-gray-700 whitespace-pre-wrap">{document.content}</pre>
-            </div>
-          )}
         </div>
       </div>
     );
   };
 
+  // Determine which renderer to use
   if (isPDF(document)) {
     return renderPDFContent();
   }
