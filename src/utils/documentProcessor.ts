@@ -83,8 +83,9 @@ export class DocumentProcessor {
   }
   
   static async processDocument(file: File): Promise<ProcessedDocument> {
-    const fileType = file.type.toLowerCase();
-    const fileName = file.name.toLowerCase();
+    // Add null/undefined checks for file.type and file.name
+    const fileType = (file.type || '').toLowerCase();
+    const fileName = (file.name || '').toLowerCase();
     
     if (fileType.includes('pdf') || fileName.endsWith('.pdf')) {
       return this.processPDF(file);
@@ -94,7 +95,7 @@ export class DocumentProcessor {
     } else {
       // For other file types, just return basic info
       return {
-        content: `Document: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type}`,
+        content: `Document: ${file.name || 'Unknown'}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type || 'Unknown'}`,
         pageCount: 1
       };
     }
