@@ -248,6 +248,17 @@ const AdminDashboard = () => {
     updateUnreadChatCount();
   };
 
+  const handleHeaderChatOpen = () => {
+    // If there are cases, open chat for the first case, otherwise show a general notification
+    if (cases.length > 0) {
+      setActiveChatCase(cases[0].id);
+      setIsChatOpen(true);
+    } else {
+      toast.info("No cases available for chat. Create a case first.");
+    }
+    updateUnreadChatCount();
+  };
+
   const handleLogout = () => {
     authService.logout();
     navigate('/');
@@ -262,7 +273,7 @@ const AdminDashboard = () => {
       <AdminHeader
         currentUser={currentUser}
         unreadChatCount={unreadChatCount}
-        onChatOpen={() => setIsChatOpen(true)}
+        onChatOpen={handleHeaderChatOpen}
         onLogout={handleLogout}
       />
 
