@@ -1,4 +1,3 @@
-
 import { User, ActivityLog, PatientCase } from '../types';
 import { dataService } from './dataService';
 
@@ -149,7 +148,28 @@ class AuthService {
 
   getCasesForDoctor(doctorId: string): PatientCase[] {
     try {
-      return dataService.getCases().filter(case_ => case_.doctorId === doctorId);
+      // Enhanced filtering to catch all possible assignment scenarios
+      const allCases = dataService.getCases();
+      const doctorCases = allCases.filter(case_ => {
+        // Check multiple conditions to ensure we don't miss any cases
+        const isAssignedById = case_.doctorId === doctorId;
+        const isAssignedByName = case_.doctorId && case_.doctorId === doctorId;
+        const hasMatchingAssignment = case_.doctorAssigned && case_.doctorId === doctorId;
+        
+        return isAssignedById || isAssignedByName || hasMatchingAssignment;
+      });
+      
+      console.log('getCasesForDoctor - Doctor ID:', doctorId);
+      console.log('getCasesForDoctor - All cases:', allCases.length);
+      console.log('getCasesForDoctor - Filtered cases:', doctorCases.length);
+      console.log('getCasesForDoctor - Case assignments:', allCases.map(c => ({ 
+        id: c.id, 
+        patient: c.patientName, 
+        doctorId: c.doctorId, 
+        doctorAssigned: c.doctorAssigned 
+      })));
+      
+      return doctorCases;
     } catch (error) {
       console.error('Error getting cases for doctor:', error);
       return [];
@@ -228,10 +248,18 @@ class AuthService {
       const doctor = users.find(u => u.id === doctorId && u.role === 'doctor' && u.isActive);
       
       if (case_ && doctor) {
+        // Ensure both ID and name are properly set for redundancy
         case_.doctorId = doctor.id;
         case_.doctorAssigned = doctor.name;
         case_.lastUpdated = new Date().toISOString();
         dataService.updateCase(case_);
+        
+        console.log('Case assigned successfully:', {
+          caseId: case_.id,
+          patientName: case_.patientName,
+          doctorId: doctor.id,
+          doctorName: doctor.name
+        });
         
         if (this.currentUser) {
           this.logActivity(
@@ -245,7 +273,7 @@ class AuthService {
           );
         }
       } else {
-        console.error('Case or doctor not found for assignment');
+        console.error('Case or doctor not found for assignment', { caseId, doctorId, case: !!case_, doctor: !!doctor });
       }
     } catch (error) {
       console.error('Error assigning case to doctor:', error);

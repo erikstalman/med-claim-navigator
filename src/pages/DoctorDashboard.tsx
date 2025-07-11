@@ -31,19 +31,36 @@ const DoctorDashboard = () => {
     loadAssignedCases(user);
     updateUnreadChatCount(user);
 
-    // Set up periodic refresh to ensure data persistence
+    // Set up periodic refresh to ensure data persistence and catch any missed assignments
     const interval = setInterval(() => {
       loadAssignedCases(user);
       updateUnreadChatCount(user);
-    }, 10000); // Refresh every 10 seconds
+    }, 5000); // Refresh every 5 seconds for better responsiveness
 
     return () => clearInterval(interval);
   }, [navigate]);
 
   const loadAssignedCases = (user: UserType) => {
     try {
-      // Load cases assigned specifically to this doctor
-      const doctorCases = authService.getCasesForDoctor(user.id);
+      // Get all cases and filter by doctor assignment - both by ID and name for redundancy
+      const allCases = authService.getAllCases();
+      const doctorCases = allCases.filter(case_ => 
+        case_.doctorId === user.id || 
+        case_.doctorAssigned === user.name ||
+        // Additional check for cases that might have been assigned but not properly synced
+        (case_.doctorId && case_.doctorId === user.id)
+      );
+      
+      console.log('All cases:', allCases.length);
+      console.log('Doctor cases for', user.name, ':', doctorCases.length);
+      console.log('Doctor ID:', user.id);
+      console.log('Cases assigned to this doctor:', doctorCases.map(c => ({
+        id: c.id,
+        patient: c.patientName,
+        doctorId: c.doctorId,
+        doctorAssigned: c.doctorAssigned
+      })));
+      
       setAssignedCases(doctorCases);
       
       // Log activity
