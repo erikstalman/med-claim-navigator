@@ -15,7 +15,7 @@ export interface ProcessedDocument {
 
 export class DocumentProcessor {
   static detectFileType(file: File): string {
-    // Ensure we have a valid file name
+    // Ensure we have a valid file name - handle both File objects and objects with name property
     const fileName = (file.name || 'unknown-file').toLowerCase();
     
     if (fileName.endsWith('.pdf')) {
@@ -153,8 +153,11 @@ export class DocumentProcessor {
   }
   
   static async processDocument(file: File): Promise<ProcessedDocument> {
-    // Ensure we always have a valid file name
+    // Ensure we always have a valid file name and size
     const safeFileName = file.name || 'unknown-document';
+    const fileSize = file.size || 0;
+    
+    console.log('Processing document:', safeFileName, 'Size:', fileSize, 'bytes');
     
     // Detect the actual file type
     const detectedType = this.detectFileType(file);
@@ -172,9 +175,10 @@ export class DocumentProcessor {
     } else if (detectedType.includes('text') || fileName.endsWith('.txt')) {
       return this.processTextFile(file);
     } else {
-      // For other file types, return basic info with safe file name
+      // For other file types, return basic info with safe file name and size
+      const sizeInKB = fileSize > 0 ? (fileSize / 1024).toFixed(2) : 'Unknown';
       return {
-        content: `Document: ${safeFileName}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${detectedType}\n\nThis document has been uploaded and is available for download.`,
+        content: `Document: ${safeFileName}\nSize: ${sizeInKB} KB\nType: ${detectedType}\n\nThis document has been uploaded and is available for download.`,
         pageCount: 1,
         detectedType
       };

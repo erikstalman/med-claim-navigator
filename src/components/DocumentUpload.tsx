@@ -77,13 +77,17 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
 
   const processAndUploadFile = async (file: UploadFile) => {
     try {
-      console.log('Starting to process file:', file.name);
+      // Ensure file has a proper name
+      const fileName = file.name || `document_${Date.now()}`;
+      const fileSize = file.size || 0;
+      
+      console.log('Starting to process file:', fileName, 'Size:', fileSize);
       updateFileStatus(file.id, { status: 'processing', progress: 25 });
       
       // Process the document to extract content
       const processedDoc = await DocumentProcessor.processDocument(file);
       console.log('Document processed successfully:', {
-        name: file.name,
+        name: fileName,
         contentLength: processedDoc.content?.length,
         hasImage: !!processedDoc.imageDataUrl,
         pageCount: processedDoc.pageCount,
@@ -95,19 +99,21 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       // Get current user info
       const currentUser = authService.getCurrentUser();
       
-      // Create document record with proper type
+      // Create document record with proper type and size calculation
+      const sizeInKB = fileSize > 0 ? (fileSize / 1024).toFixed(2) : '0.00';
+      
       const document: Document = {
         id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: file.name, // Use the original file name directly
+        name: fileName, // Use the original file name directly
         type: processedDoc.detectedType || file.type || 'application/octet-stream',
         uploadDate: new Date().toLocaleDateString(),
         uploadedBy: currentUser?.name || 'Current User',
         uploadedById: currentUser?.id || '1',
-        size: `${(file.size / 1024).toFixed(2)} KB`,
+        size: `${sizeInKB} KB`,
         pages: processedDoc.pageCount,
         category: file.category as any,
         caseId: caseId,
-        filePath: `documents/${caseId}/${file.name}`,
+        filePath: `documents/${caseId}/${fileName}`,
         content: processedDoc.content,
         fileUrl: processedDoc.imageDataUrl // For PDF preview images and other file URLs
       };
@@ -119,14 +125,14 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       updateFileStatus(file.id, { status: 'completed', progress: 100 });
       onDocumentUploaded(document);
       
-      toast.success(`Document "${file.name}" uploaded and processed successfully`);
+      toast.success(`Document "${fileName}" uploaded and processed successfully`);
     } catch (error) {
       console.error('Error processing document:', error);
       updateFileStatus(file.id, { 
         status: 'error', 
         error: error instanceof Error ? error.message : 'Failed to process document'
       });
-      toast.error(`Failed to upload "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Failed to upload "${file.name || 'document'}": ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -200,9 +206,9 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
                 {getStatusIcon(file.status)}
                 <div className="flex-1">
                   <div className="flex items-center space-x-2">
-                    <span className="font-medium text-sm">{file.name}</span>
+                    <span className="font-medium text-sm">{file.name || 'Unknown File'}</span>
                     <span className="text-xs text-gray-500">
-                      ({(file.size / 1024).toFixed(2)} KB)
+                      ({file.size ? (file.size / 1024).toFixed(2) : '0.00'} KB)
                     </span>
                   </div>
                   {file.status === 'processing' && (
