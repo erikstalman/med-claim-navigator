@@ -10,10 +10,18 @@ interface DocumentRendererProps {
 }
 
 const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) => {
-  // Ensure document name is always a string
-  const documentName = typeof document.name === 'string' && document.name ? document.name : 'Untitled Document';
+  // Ensure document name is always a string and not empty
+  const documentName = (document.name && typeof document.name === 'string' && document.name.trim()) 
+    ? document.name 
+    : 'Unknown Document';
   
-  console.log('Rendering document:', documentName, 'Type:', document.type, 'Has content:', !!document.content, 'Has fileUrl:', !!document.fileUrl);
+  console.log('Rendering document:', {
+    name: documentName,
+    type: document.type,
+    hasContent: !!document.content,
+    hasFileUrl: !!document.fileUrl,
+    size: document.size
+  });
 
   const isPDF = (document: Document) => {
     const type = (document.type || '').toLowerCase();
