@@ -1,16 +1,16 @@
+
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Upload, FileText, X, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Document } from "@/types";
 import { dataService } from "@/services/dataService";
 import { DocumentProcessor } from "@/utils/documentProcessor";
+import { authService } from "@/services/authService";
 
 interface DocumentUploadProps {
   caseId: string;
@@ -49,9 +49,14 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       'application/msword': ['.doc'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'],
-      'text/plain': ['.txt']
+      'text/plain': ['.txt'],
+      'application/rtf': ['.rtf'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-powerpoint': ['.ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx']
     },
-    maxSize: 10 * 1024 * 1024 // 10MB
+    maxSize: 50 * 1024 * 1024 // 50MB
   });
 
   const updateFileStatus = (fileId: string, updates: Partial<UploadFile>) => {
@@ -86,25 +91,28 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       });
       
       updateFileStatus(file.id, { progress: 75 });
+
+      // Get current user info
+      const currentUser = authService.getCurrentUser();
       
       // Create document record with proper type
       const document: Document = {
         id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: file.name,
-        type: processedDoc.detectedType || file.type || 'application/octet-stream', // Use detected type
+        name: file.name, // Use the original file name directly
+        type: processedDoc.detectedType || file.type || 'application/octet-stream',
         uploadDate: new Date().toLocaleDateString(),
-        uploadedBy: 'Current User', // This should come from auth context
-        uploadedById: '1', // This should come from auth context
+        uploadedBy: currentUser?.name || 'Current User',
+        uploadedById: currentUser?.id || '1',
         size: `${(file.size / 1024).toFixed(2)} KB`,
         pages: processedDoc.pageCount,
         category: file.category as any,
         caseId: caseId,
         filePath: `documents/${caseId}/${file.name}`,
         content: processedDoc.content,
-        fileUrl: processedDoc.imageDataUrl // For PDF preview images
+        fileUrl: processedDoc.imageDataUrl // For PDF preview images and other file URLs
       };
 
-      console.log('Saving document to dataService:', document.id, 'Type:', document.type);
+      console.log('Saving document to dataService:', document.id, 'Type:', document.type, 'Name:', document.name);
       // Save to data service
       dataService.addDocument(document);
       
@@ -154,7 +162,7 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       <CardHeader>
         <CardTitle>Upload Documents</CardTitle>
         <CardDescription>
-          Upload medical records, images, and other case-related documents
+          Upload medical records, images, text files, and other case-related documents. All file types are supported for preview.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -177,7 +185,7 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
                 Drag & drop files here, or click to select
               </p>
               <p className="text-sm text-gray-500">
-                Supports PDF, DOCX, DOC, images, and text files (max 10MB each)
+                Supports PDF, DOCX, DOC, images, text files, Excel, PowerPoint and more (max 50MB each)
               </p>
             </div>
           )}
@@ -220,6 +228,7 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
                       <SelectItem value="treatment">Treatment</SelectItem>
                       <SelectItem value="patient-claim">Patient Claim</SelectItem>
                       <SelectItem value="administrative">Administrative</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button

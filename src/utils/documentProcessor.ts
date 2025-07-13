@@ -109,6 +109,48 @@ export class DocumentProcessor {
       throw new Error('Failed to process DOCX document: ' + (error as Error).message);
     }
   }
+
+  static async processImage(file: File): Promise<ProcessedDocument> {
+    try {
+      const fileName = file.name || 'unknown-image';
+      console.log('Processing Image:', fileName);
+      
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const imageDataUrl = e.target?.result as string;
+          resolve({
+            content: `Image: ${fileName}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type}`,
+            pageCount: 1,
+            imageDataUrl,
+            detectedType: file.type || 'image/unknown'
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    } catch (error) {
+      console.error('Error processing Image:', error);
+      throw new Error('Failed to process image: ' + (error as Error).message);
+    }
+  }
+
+  static async processTextFile(file: File): Promise<ProcessedDocument> {
+    try {
+      const fileName = file.name || 'unknown.txt';
+      console.log('Processing Text file:', fileName);
+      const text = await file.text();
+      
+      return {
+        content: text || 'Text file is empty',
+        pageCount: 1,
+        textContent: text,
+        detectedType: 'text/plain'
+      };
+    } catch (error) {
+      console.error('Error processing text file:', error);
+      throw new Error('Failed to process text file: ' + (error as Error).message);
+    }
+  }
   
   static async processDocument(file: File): Promise<ProcessedDocument> {
     // Ensure we always have a valid file name
@@ -125,10 +167,14 @@ export class DocumentProcessor {
     } else if (detectedType.includes('word') || detectedType.includes('document') || 
                fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
       return this.processDocx(file);
+    } else if (detectedType.includes('image') || fileName.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)) {
+      return this.processImage(file);
+    } else if (detectedType.includes('text') || fileName.endsWith('.txt')) {
+      return this.processTextFile(file);
     } else {
-      // For other file types, just return basic info with safe file name
+      // For other file types, return basic info with safe file name
       return {
-        content: `Document: ${safeFileName}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${detectedType}\n\nThis document type is supported for storage but preview may be limited.`,
+        content: `Document: ${safeFileName}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${detectedType}\n\nThis document has been uploaded and is available for download.`,
         pageCount: 1,
         detectedType
       };
