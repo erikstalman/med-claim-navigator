@@ -30,7 +30,13 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
   const [isUploading, setIsUploading] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    console.log('Files dropped:', acceptedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })));
+    console.log('Files dropped:', acceptedFiles.map(f => ({ 
+      name: f.name, 
+      type: f.type, 
+      size: f.size,
+      lastModified: f.lastModified 
+    })));
+    
     const newFiles: UploadFile[] = acceptedFiles.map(file => ({
       ...file,
       id: Math.random().toString(36).substr(2, 9),
@@ -48,15 +54,32 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       'application/pdf': ['.pdf'],
       'application/msword': ['.doc'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'],
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.tiff', '.svg'],
       'text/plain': ['.txt'],
       'application/rtf': ['.rtf'],
+      'text/csv': ['.csv'],
+      'application/json': ['.json'],
+      'application/xml': ['.xml'],
       'application/vnd.ms-excel': ['.xls'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'application/vnd.ms-powerpoint': ['.ppt'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx']
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'application/zip': ['.zip'],
+      'application/x-rar-compressed': ['.rar'],
+      'application/x-7z-compressed': ['.7z']
     },
-    maxSize: 50 * 1024 * 1024 // 50MB
+    maxSize: 50 * 1024 * 1024, // 50MB
+    onDropRejected: (rejectedFiles) => {
+      rejectedFiles.forEach(({ file, errors }) => {
+        errors.forEach(error => {
+          if (error.code === 'file-too-large') {
+            toast.error(`File "${file.name}" is too large. Maximum size is 50MB.`);
+          } else {
+            toast.error(`File "${file.name}" was rejected: ${error.message}`);
+          }
+        });
+      });
+    }
   });
 
   const updateFileStatus = (fileId: string, updates: Partial<UploadFile>) => {
@@ -77,11 +100,15 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
 
   const processAndUploadFile = async (file: UploadFile) => {
     try {
-      // Ensure file has a proper name
+      // Validate file first
+      if (!file || file.size === 0) {
+        throw new Error('Invalid or empty file');
+      }
+
       const fileName = file.name || `document_${Date.now()}`;
-      const fileSize = file.size || 0;
+      const fileSize = file.size;
       
-      console.log('Starting to process file:', fileName, 'Size:', fileSize);
+      console.log('Starting to process file:', fileName, 'Size:', fileSize, 'Type:', file.type);
       updateFileStatus(file.id, { status: 'processing', progress: 25 });
       
       // Process the document to extract content
@@ -104,13 +131,13 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       
       const document: Document = {
         id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: fileName, // Use the original file name directly
+        name: fileName,
         type: processedDoc.detectedType || file.type || 'application/octet-stream',
         uploadDate: new Date().toLocaleDateString(),
         uploadedBy: currentUser?.name || 'Current User',
         uploadedById: currentUser?.id || '1',
         size: `${sizeInKB} KB`,
-        pages: processedDoc.pageCount,
+        pages: processedDoc.pageCount || 1,
         category: file.category as any,
         caseId: caseId,
         filePath: `documents/${caseId}/${fileName}`,
@@ -119,6 +146,7 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       };
 
       console.log('Saving document to dataService:', document.id, 'Type:', document.type, 'Name:', document.name);
+      
       // Save to data service
       dataService.addDocument(document);
       
@@ -128,26 +156,37 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       toast.success(`Document "${fileName}" uploaded and processed successfully`);
     } catch (error) {
       console.error('Error processing document:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process document';
       updateFileStatus(file.id, { 
         status: 'error', 
-        error: error instanceof Error ? error.message : 'Failed to process document'
+        error: errorMessage
       });
-      toast.error(`Failed to upload "${file.name || 'document'}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Failed to upload "${file.name || 'document'}": ${errorMessage}`);
     }
   };
 
   const handleUploadAll = async () => {
     const pendingFiles = files.filter(file => file.status === 'pending');
-    if (pendingFiles.length === 0) return;
+    if (pendingFiles.length === 0) {
+      toast.info('No files to upload');
+      return;
+    }
 
     setIsUploading(true);
     
-    // Process files sequentially to avoid overwhelming the browser
-    for (const file of pendingFiles) {
-      await processAndUploadFile(file);
+    try {
+      // Process files sequentially to avoid overwhelming the browser
+      for (const file of pendingFiles) {
+        await processAndUploadFile(file);
+        // Small delay between files to prevent browser blocking
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (error) {
+      console.error('Error during batch upload:', error);
+      toast.error('Some files failed to upload');
+    } finally {
+      setIsUploading(false);
     }
-    
-    setIsUploading(false);
   };
 
   const getStatusIcon = (status: UploadFile['status']) => {
@@ -163,12 +202,20 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
     }
   };
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Upload Documents</CardTitle>
         <CardDescription>
-          Upload medical records, images, text files, and other case-related documents. All file types are supported for preview.
+          Upload any file type including PDFs, images, Word documents, text files, spreadsheets, and more. All files support preview and content extraction where possible.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -191,7 +238,7 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
                 Drag & drop files here, or click to select
               </p>
               <p className="text-sm text-gray-500">
-                Supports PDF, DOCX, DOC, images, text files, Excel, PowerPoint and more (max 50MB each)
+                Supports all file types including PDFs, documents, images, text files, and more (max 50MB each)
               </p>
             </div>
           )}
@@ -200,54 +247,59 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
         {/* File List */}
         {files.length > 0 && (
           <div className="space-y-3">
-            <h4 className="font-medium">Selected Files</h4>
-            {files.map((file) => (
-              <div key={file.id} className="flex items-center space-x-3 p-3 border rounded-lg">
-                {getStatusIcon(file.status)}
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium text-sm">{file.name || 'Unknown File'}</span>
-                    <span className="text-xs text-gray-500">
-                      ({file.size ? (file.size / 1024).toFixed(2) : '0.00'} KB)
-                    </span>
+            <h4 className="font-medium">Selected Files ({files.length})</h4>
+            <div className="max-h-64 overflow-y-auto space-y-2">
+              {files.map((file) => (
+                <div key={file.id} className="flex items-center space-x-3 p-3 border rounded-lg bg-white">
+                  {getStatusIcon(file.status)}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium text-sm truncate">{file.name || 'Unknown File'}</span>
+                      <span className="text-xs text-gray-500 flex-shrink-0">
+                        ({formatFileSize(file.size || 0)})
+                      </span>
+                    </div>
+                    {file.type && (
+                      <p className="text-xs text-gray-400 truncate">{file.type}</p>
+                    )}
+                    {file.status === 'processing' && (
+                      <Progress value={file.progress} className="mt-1" />
+                    )}
+                    {file.status === 'error' && file.error && (
+                      <p className="text-xs text-red-600 mt-1">{file.error}</p>
+                    )}
                   </div>
-                  {file.status === 'processing' && (
-                    <Progress value={file.progress} className="mt-1" />
-                  )}
-                  {file.status === 'error' && file.error && (
-                    <p className="text-xs text-red-600 mt-1">{file.error}</p>
-                  )}
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    <Select
+                      value={file.category}
+                      onValueChange={(value) => updateFileCategory(file.id, value)}
+                      disabled={file.status !== 'pending'}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="medical">Medical</SelectItem>
+                        <SelectItem value="imaging">Imaging</SelectItem>
+                        <SelectItem value="legal">Legal</SelectItem>
+                        <SelectItem value="treatment">Treatment</SelectItem>
+                        <SelectItem value="patient-claim">Patient Claim</SelectItem>
+                        <SelectItem value="administrative">Administrative</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(file.id)}
+                      disabled={file.status === 'processing'}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Select
-                    value={file.category}
-                    onValueChange={(value) => updateFileCategory(file.id, value)}
-                    disabled={file.status !== 'pending'}
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="medical">Medical</SelectItem>
-                      <SelectItem value="imaging">Imaging</SelectItem>
-                      <SelectItem value="legal">Legal</SelectItem>
-                      <SelectItem value="treatment">Treatment</SelectItem>
-                      <SelectItem value="patient-claim">Patient Claim</SelectItem>
-                      <SelectItem value="administrative">Administrative</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFile(file.id)}
-                    disabled={file.status === 'processing'}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
@@ -258,8 +310,18 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
             disabled={isUploading}
             className="w-full"
           >
-            {isUploading ? 'Processing Documents...' : 'Upload All Documents'}
+            {isUploading ? 'Processing Documents...' : `Upload ${files.filter(f => f.status === 'pending').length} Document(s)`}
           </Button>
+        )}
+
+        {/* Summary */}
+        {files.length > 0 && (
+          <div className="text-xs text-gray-500 pt-2 border-t">
+            Total: {files.length} files • 
+            Completed: {files.filter(f => f.status === 'completed').length} • 
+            Pending: {files.filter(f => f.status === 'pending').length} • 
+            Errors: {files.filter(f => f.status === 'error').length}
+          </div>
         )}
       </CardContent>
     </Card>

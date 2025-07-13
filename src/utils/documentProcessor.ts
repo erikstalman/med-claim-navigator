@@ -15,7 +15,12 @@ export interface ProcessedDocument {
 
 export class DocumentProcessor {
   static detectFileType(file: File): string {
-    // Ensure we have a valid file name - handle both File objects and objects with name property
+    // First try to use the file's MIME type if it's reliable
+    if (file.type && file.type !== 'application/octet-stream') {
+      return file.type;
+    }
+    
+    // Fallback to file extension detection
     const fileName = (file.name || 'unknown-file').toLowerCase();
     
     if (fileName.endsWith('.pdf')) {
@@ -24,20 +29,35 @@ export class DocumentProcessor {
       return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     } else if (fileName.endsWith('.doc')) {
       return 'application/msword';
-    } else if (fileName.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)) {
-      return 'image/' + fileName.split('.').pop();
+    } else if (fileName.match(/\.(jpg|jpeg)$/i)) {
+      return 'image/jpeg';
+    } else if (fileName.endsWith('.png')) {
+      return 'image/png';
+    } else if (fileName.endsWith('.gif')) {
+      return 'image/gif';
+    } else if (fileName.endsWith('.bmp')) {
+      return 'image/bmp';
+    } else if (fileName.endsWith('.webp')) {
+      return 'image/webp';
     } else if (fileName.endsWith('.txt')) {
       return 'text/plain';
+    } else if (fileName.endsWith('.rtf')) {
+      return 'application/rtf';
+    } else if (fileName.endsWith('.csv')) {
+      return 'text/csv';
+    } else if (fileName.endsWith('.xml')) {
+      return 'application/xml';
+    } else if (fileName.endsWith('.json')) {
+      return 'application/json';
     }
     
-    // Fallback to file.type if available
+    // If we still can't determine, return the original type or a generic one
     return file.type || 'application/octet-stream';
   }
 
   static async processPDF(file: File): Promise<ProcessedDocument> {
     try {
-      const fileName = file.name || 'unknown.pdf';
-      console.log('Processing PDF:', fileName, 'Size:', file.size);
+      console.log('Processing PDF:', file.name, 'Size:', file.size);
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       
@@ -45,21 +65,26 @@ export class DocumentProcessor {
       const pageCount = pdf.numPages;
       console.log('PDF has', pageCount, 'pages');
       
-      // Extract text from all pages
-      for (let i = 1; i <= Math.min(pageCount, 10); i++) { // Limit to first 10 pages for performance
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        fullText += pageText + '\n\n';
+      // Extract text from first few pages for performance
+      const pagesToProcess = Math.min(pageCount, 5);
+      for (let i = 1; i <= pagesToProcess; i++) {
+        try {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .map((item: any) => item.str)
+            .join(' ');
+          fullText += pageText + '\n\n';
+        } catch (pageError) {
+          console.warn(`Could not extract text from page ${i}:`, pageError);
+        }
       }
       
       // Generate preview image from first page
       let imageDataUrl = '';
       try {
         const firstPage = await pdf.getPage(1);
-        const viewport = firstPage.getViewport({ scale: 1.5 });
+        const viewport = firstPage.getViewport({ scale: 1.2 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.height = viewport.height;
@@ -71,7 +96,7 @@ export class DocumentProcessor {
             viewport: viewport
           }).promise;
           
-          imageDataUrl = canvas.toDataURL();
+          imageDataUrl = canvas.toDataURL('image/png', 0.8);
           console.log('Generated PDF preview image');
         }
       } catch (renderError) {
@@ -79,7 +104,7 @@ export class DocumentProcessor {
       }
       
       return {
-        content: fullText.trim() || 'PDF content could not be extracted',
+        content: fullText.trim() || `PDF Document with ${pageCount} pages. Text extraction may not be available for image-based or scanned PDFs.`,
         pageCount,
         textContent: fullText.trim(),
         imageDataUrl,
@@ -87,42 +112,55 @@ export class DocumentProcessor {
       };
     } catch (error) {
       console.error('Error processing PDF:', error);
-      throw new Error('Failed to process PDF document: ' + (error as Error).message);
+      return {
+        content: `PDF Document: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nThis PDF could not be processed for preview. It may be password-protected, corrupted, or in an unsupported format.`,
+        pageCount: 1,
+        detectedType: 'application/pdf'
+      };
     }
   }
   
   static async processDocx(file: File): Promise<ProcessedDocument> {
     try {
-      const fileName = file.name || 'unknown.docx';
-      console.log('Processing DOCX:', fileName);
+      console.log('Processing DOCX:', file.name);
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.extractRawText({ arrayBuffer });
       
       return {
-        content: result.value || 'DOCX content could not be extracted',
-        pageCount: 1, // DOCX doesn't have fixed pages
+        content: result.value || `DOCX Document: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nContent could not be extracted.`,
+        pageCount: 1,
         textContent: result.value,
         detectedType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       };
     } catch (error) {
       console.error('Error processing DOCX:', error);
-      throw new Error('Failed to process DOCX document: ' + (error as Error).message);
+      return {
+        content: `DOCX Document: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nThis document could not be processed for preview.`,
+        pageCount: 1,
+        detectedType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      };
     }
   }
 
   static async processImage(file: File): Promise<ProcessedDocument> {
     try {
-      const fileName = file.name || 'unknown-image';
-      console.log('Processing Image:', fileName);
+      console.log('Processing Image:', file.name);
       
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => {
           const imageDataUrl = e.target?.result as string;
           resolve({
-            content: `Image: ${fileName}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type}`,
+            content: `Image: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type}\nDimensions: Available in preview`,
             pageCount: 1,
             imageDataUrl,
+            detectedType: file.type || 'image/unknown'
+          });
+        };
+        reader.onerror = () => {
+          resolve({
+            content: `Image: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type}\nPreview could not be generated.`,
+            pageCount: 1,
             detectedType: file.type || 'image/unknown'
           });
         };
@@ -130,55 +168,92 @@ export class DocumentProcessor {
       });
     } catch (error) {
       console.error('Error processing Image:', error);
-      throw new Error('Failed to process image: ' + (error as Error).message);
+      return {
+        content: `Image: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nThis image could not be processed for preview.`,
+        pageCount: 1,
+        detectedType: file.type || 'image/unknown'
+      };
     }
   }
 
   static async processTextFile(file: File): Promise<ProcessedDocument> {
     try {
-      const fileName = file.name || 'unknown.txt';
-      console.log('Processing Text file:', fileName);
+      console.log('Processing Text file:', file.name);
       const text = await file.text();
       
       return {
-        content: text || 'Text file is empty',
+        content: text || `Text file: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nThis text file appears to be empty.`,
         pageCount: 1,
         textContent: text,
         detectedType: 'text/plain'
       };
     } catch (error) {
       console.error('Error processing text file:', error);
-      throw new Error('Failed to process text file: ' + (error as Error).message);
+      return {
+        content: `Text file: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nThis text file could not be read.`,
+        pageCount: 1,
+        detectedType: 'text/plain'
+      };
     }
+  }
+
+  static async processGenericFile(file: File): Promise<ProcessedDocument> {
+    try {
+      // Try to read as text first
+      const text = await file.text();
+      if (text && text.trim().length > 0) {
+        return {
+          content: text,
+          pageCount: 1,
+          textContent: text,
+          detectedType: file.type || 'text/plain'
+        };
+      }
+    } catch (error) {
+      console.log('File is not text-readable, treating as binary');
+    }
+
+    // For binary files or files that can't be read as text
+    return {
+      content: `Document: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type || 'Unknown'}\n\nThis document has been uploaded successfully and is available for download.\n\nFile details:\n- Format: ${file.type || 'Unknown'}\n- Last modified: ${file.lastModified ? new Date(file.lastModified).toLocaleDateString() : 'Unknown'}`,
+      pageCount: 1,
+      detectedType: file.type || 'application/octet-stream'
+    };
   }
   
   static async processDocument(file: File): Promise<ProcessedDocument> {
-    // Ensure we always have a valid file name and size
-    const safeFileName = file.name || 'unknown-document';
+    // Validate file
+    if (!file || file.size === 0) {
+      throw new Error('Invalid or empty file');
+    }
+
+    const fileName = file.name || `document_${Date.now()}`;
     const fileSize = file.size || 0;
     
-    console.log('Processing document:', safeFileName, 'Size:', fileSize, 'bytes');
+    console.log('Processing document:', fileName, 'Size:', fileSize, 'bytes', 'Type:', file.type);
     
     // Detect the actual file type
     const detectedType = this.detectFileType(file);
-    const fileName = safeFileName.toLowerCase();
     
-    console.log('Processing document:', fileName, 'Detected Type:', detectedType);
+    console.log('Detected file type:', detectedType);
     
-    if (detectedType.includes('pdf') || fileName.endsWith('.pdf')) {
-      return this.processPDF(file);
-    } else if (detectedType.includes('word') || detectedType.includes('document') || 
-               fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
-      return this.processDocx(file);
-    } else if (detectedType.includes('image') || fileName.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)) {
-      return this.processImage(file);
-    } else if (detectedType.includes('text') || fileName.endsWith('.txt')) {
-      return this.processTextFile(file);
-    } else {
-      // For other file types, return basic info with safe file name and size
-      const sizeInKB = fileSize > 0 ? (fileSize / 1024).toFixed(2) : 'Unknown';
+    try {
+      if (detectedType === 'application/pdf') {
+        return await this.processPDF(file);
+      } else if (detectedType.includes('wordprocessingml') || detectedType.includes('msword')) {
+        return await this.processDocx(file);
+      } else if (detectedType.startsWith('image/')) {
+        return await this.processImage(file);
+      } else if (detectedType.startsWith('text/') || detectedType === 'application/json' || detectedType === 'application/xml') {
+        return await this.processTextFile(file);
+      } else {
+        return await this.processGenericFile(file);
+      }
+    } catch (error) {
+      console.error('Error processing document:', error);
+      // Return a basic document info even if processing fails
       return {
-        content: `Document: ${safeFileName}\nSize: ${sizeInKB} KB\nType: ${detectedType}\n\nThis document has been uploaded and is available for download.`,
+        content: `Document: ${fileName}\nSize: ${(fileSize / 1024).toFixed(2)} KB\nType: ${detectedType}\n\nThis document could not be processed for preview but has been uploaded successfully.\n\nError details: ${error instanceof Error ? error.message : 'Unknown error'}`,
         pageCount: 1,
         detectedType
       };
