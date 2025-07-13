@@ -144,9 +144,9 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
                         <div>{document.uploadDate}</div>
                       </div>
                     </div>
-                    {document.uploadedByName && (
+                    {document.uploadedBy && (
                       <div className="text-sm text-gray-500 mt-2">
-                        Uploaded by: {document.uploadedByName}
+                        Uploaded by: {document.uploadedBy}
                       </div>
                     )}
                   </div>
