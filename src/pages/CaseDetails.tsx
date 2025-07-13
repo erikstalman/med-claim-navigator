@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import AIDocumentChat from "@/components/AIDocumentChat";
 import DocumentList from "@/components/DocumentList";
+import DocumentUpload from "@/components/DocumentUpload";
 import EvaluationForm from "@/components/EvaluationForm";
 import { dataService } from "@/services/dataService";
 import { authService } from "@/services/authService";
-import { PatientCase, User } from "@/types";
+import { PatientCase, User, Document } from "@/types";
 
 const CaseDetails = () => {
   const { caseId } = useParams();
@@ -19,6 +19,7 @@ const CaseDetails = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [caseData, setCaseData] = useState<PatientCase | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -33,12 +34,25 @@ const CaseDetails = () => {
       const foundCase = cases.find(c => c.id === caseId);
       if (foundCase) {
         setCaseData(foundCase);
+        loadDocuments();
       } else {
         // Case not found, redirect back
         navigate(user.role === 'admin' ? '/admin' : '/doctor');
       }
     }
   }, [caseId, navigate]);
+
+  const loadDocuments = () => {
+    if (caseId) {
+      const caseDocuments = dataService.getDocuments().filter(doc => doc.caseId === caseId);
+      setDocuments(caseDocuments);
+    }
+  };
+
+  const handleDocumentUploaded = (newDocument: Document) => {
+    console.log('Document uploaded:', newDocument);
+    loadDocuments(); // Refresh the document list
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -205,7 +219,14 @@ const CaseDetails = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="documents" className="mt-6">
+            <TabsContent value="documents" className="mt-6 space-y-6">
+              {/* Document Upload Section */}
+              <DocumentUpload 
+                caseId={caseData.id}
+                onDocumentUploaded={handleDocumentUploaded}
+              />
+              
+              {/* Document List Section */}
               <DocumentList caseId={caseData.id} />
             </TabsContent>
 
