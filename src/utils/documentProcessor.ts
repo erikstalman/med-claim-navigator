@@ -10,13 +10,13 @@ export interface ProcessedDocument {
   pageCount: number;
   textContent?: string;
   imageDataUrl?: string;
-  detectedType?: string; // Add detected type
+  detectedType?: string;
 }
 
 export class DocumentProcessor {
   static detectFileType(file: File): string {
-    // Check file extension as primary method
-    const fileName = (file.name || '').toLowerCase();
+    // Ensure we have a valid file name
+    const fileName = (file.name || 'unknown-file').toLowerCase();
     
     if (fileName.endsWith('.pdf')) {
       return 'application/pdf';
@@ -36,7 +36,8 @@ export class DocumentProcessor {
 
   static async processPDF(file: File): Promise<ProcessedDocument> {
     try {
-      console.log('Processing PDF:', file.name, 'Size:', file.size);
+      const fileName = file.name || 'unknown.pdf';
+      console.log('Processing PDF:', fileName, 'Size:', file.size);
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       
@@ -92,7 +93,8 @@ export class DocumentProcessor {
   
   static async processDocx(file: File): Promise<ProcessedDocument> {
     try {
-      console.log('Processing DOCX:', file.name);
+      const fileName = file.name || 'unknown.docx';
+      console.log('Processing DOCX:', fileName);
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.extractRawText({ arrayBuffer });
       
@@ -109,9 +111,12 @@ export class DocumentProcessor {
   }
   
   static async processDocument(file: File): Promise<ProcessedDocument> {
+    // Ensure we always have a valid file name
+    const safeFileName = file.name || 'unknown-document';
+    
     // Detect the actual file type
     const detectedType = this.detectFileType(file);
-    const fileName = (file.name || '').toLowerCase();
+    const fileName = safeFileName.toLowerCase();
     
     console.log('Processing document:', fileName, 'Detected Type:', detectedType);
     
@@ -121,9 +126,9 @@ export class DocumentProcessor {
                fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
       return this.processDocx(file);
     } else {
-      // For other file types, just return basic info
+      // For other file types, just return basic info with safe file name
       return {
-        content: `Document: ${file.name || 'Unknown'}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${detectedType}\n\nThis document type is supported for storage but preview may be limited.`,
+        content: `Document: ${safeFileName}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${detectedType}\n\nThis document type is supported for storage but preview may be limited.`,
         pageCount: 1,
         detectedType
       };
