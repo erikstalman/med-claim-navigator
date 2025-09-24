@@ -15,14 +15,12 @@ export interface ProcessedDocument {
 
 export class DocumentProcessor {
   static detectFileType(file: File): string {
-    // First try to use the file's MIME type if it's reliable
-    if (file.type && file.type !== 'application/octet-stream') {
-      return file.type;
-    }
-    
-    // Fallback to file extension detection
+    // Always use the file name for detection as it's more reliable
     const fileName = (file.name || 'unknown-file').toLowerCase();
     
+    console.log('Detecting file type for:', fileName, 'MIME type:', file.type);
+    
+    // Use file extension as primary detection method
     if (fileName.endsWith('.pdf')) {
       return 'application/pdf';
     } else if (fileName.endsWith('.docx')) {
@@ -51,8 +49,12 @@ export class DocumentProcessor {
       return 'application/json';
     }
     
-    // If we still can't determine, return the original type or a generic one
-    return file.type || 'application/octet-stream';
+    // Fallback to MIME type if extension detection fails
+    if (file.type && file.type !== 'application/octet-stream') {
+      return file.type;
+    }
+    
+    return 'application/octet-stream';
   }
 
   static async processPDF(file: File): Promise<ProcessedDocument> {
@@ -222,15 +224,28 @@ export class DocumentProcessor {
   }
   
   static async processDocument(file: File): Promise<ProcessedDocument> {
-    // Validate file
-    if (!file || file.size === 0) {
-      throw new Error('Invalid or empty file');
+    // Validate file - ensure we have the essential properties
+    if (!file) {
+      throw new Error('No file provided');
+    }
+    
+    if (!file.name) {
+      throw new Error('File has no name');
+    }
+    
+    if (file.size === 0) {
+      throw new Error('File is empty');
     }
 
-    const fileName = file.name || `document_${Date.now()}`;
-    const fileSize = file.size || 0;
+    const fileName = file.name;
+    const fileSize = file.size;
     
-    console.log('Processing document:', fileName, 'Size:', fileSize, 'bytes', 'Type:', file.type);
+    console.log('Processing document:', {
+      name: fileName,
+      size: fileSize,
+      type: file.type,
+      lastModified: file.lastModified
+    });
     
     // Detect the actual file type
     const detectedType = this.detectFileType(file);

@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from "@/components/ui/button";
@@ -30,11 +29,11 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
   const [isUploading, setIsUploading] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    console.log('Files dropped:', acceptedFiles.map(f => ({ 
-      name: f.name, 
-      type: f.type, 
+    console.log('Files dropped:', acceptedFiles.map(f => ({
+      name: f.name,
+      type: f.type,
       size: f.size,
-      lastModified: f.lastModified 
+      lastModified: f.lastModified
     })));
     
     const newFiles: UploadFile[] = acceptedFiles.map(file => ({
@@ -100,18 +99,25 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
 
   const processAndUploadFile = async (file: UploadFile) => {
     try {
-      // Validate file first
-      if (!file || file.size === 0) {
-        throw new Error('Invalid or empty file');
+      // Validate file first - make sure we have valid file properties
+      if (!file || !file.name || file.size === 0) {
+        throw new Error('Invalid file: missing name or empty file');
       }
 
-      const fileName = file.name || `document_${Date.now()}`;
+      const fileName = file.name;
       const fileSize = file.size;
+      const fileType = file.type || 'application/octet-stream';
       
-      console.log('Starting to process file:', fileName, 'Size:', fileSize, 'Type:', file.type);
+      console.log('Starting to process file:', {
+        name: fileName,
+        size: fileSize,
+        type: fileType,
+        lastModified: file.lastModified
+      });
+      
       updateFileStatus(file.id, { status: 'processing', progress: 25 });
       
-      // Process the document to extract content
+      // Process the document to extract content - pass the actual File object
       const processedDoc = await DocumentProcessor.processDocument(file);
       console.log('Document processed successfully:', {
         name: fileName,
@@ -131,8 +137,8 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       
       const document: Document = {
         id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: fileName,
-        type: processedDoc.detectedType || file.type || 'application/octet-stream',
+        name: fileName, // Use the actual file name
+        type: processedDoc.detectedType || fileType,
         uploadDate: new Date().toLocaleDateString(),
         uploadedBy: currentUser?.name || 'Current User',
         uploadedById: currentUser?.id || '1',
@@ -145,7 +151,12 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
         fileUrl: processedDoc.imageDataUrl // For PDF preview images and other file URLs
       };
 
-      console.log('Saving document to dataService:', document.id, 'Type:', document.type, 'Name:', document.name);
+      console.log('Saving document to dataService:', {
+        id: document.id,
+        name: document.name,
+        type: document.type,
+        size: document.size
+      });
       
       // Save to data service
       dataService.addDocument(document);
@@ -254,9 +265,9 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
                   {getStatusIcon(file.status)}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
-                      <span className="font-medium text-sm truncate">{file.name || 'Unknown File'}</span>
+                      <span className="font-medium text-sm truncate">{file.name}</span>
                       <span className="text-xs text-gray-500 flex-shrink-0">
-                        ({formatFileSize(file.size || 0)})
+                        ({formatFileSize(file.size)})
                       </span>
                     </div>
                     {file.type && (
