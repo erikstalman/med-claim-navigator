@@ -171,7 +171,7 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
         caseId: caseId,
         filePath: `documents/${caseId}/${fileName}`,
         content: processedDoc.content,
-        fileUrl: fileDataUrl,
+        fileUrl: processedDoc.fileDataUrl,
         previewImageUrl: processedDoc.previewImageUrl || processedDoc.imageDataUrl
       };
 

@@ -8,9 +8,9 @@ import MissingInfoAlert from "./MissingInfoAlert";
 import CausalityAssessment from "./CausalityAssessment";
 import MedicalDisabilityAssessment from "./MedicalDisabilityAssessment";
 import FormActions from "./FormActions";
-import { dataService } from "@/services/dataService";
 import { authService } from "@/services/authService";
 import { Document } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EvaluationFormProps {
   caseId: string;
@@ -44,18 +44,53 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
   });
 
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
 
-  const loadDocuments = useCallback(() => {
-    const allDocuments = dataService.getDocuments();
-    const caseDocuments = allDocuments.filter(doc => doc.caseId === caseId);
-    console.log("EvaluationForm loading documents for case:", caseId, "Found:", caseDocuments.length);
-    setDocuments(caseDocuments);
+  const loadDocuments = useCallback(async () => {
+    setLoadingDocuments(true);
+    try {
+      const { data, error } = await supabase
+        .from("documents")
+        .select(
+          "id, name, type, upload_date, uploaded_by, uploaded_by_name, size_mb, pages, category, case_id, file_path, file_url, content"
+        )
+        .eq("case_id", caseId)
+        .order("upload_date", { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      const mappedDocuments: Document[] = (data ?? []).map(doc => ({
+        id: doc.id,
+        name: doc.name,
+        type: doc.type,
+        uploadDate: doc.upload_date,
+        uploadedBy: doc.uploaded_by_name || doc.uploaded_by || "Unknown",
+        uploadedById: doc.uploaded_by || "",
+        size: doc.size_mb ? `${doc.size_mb.toFixed(2)} MB` : "",
+        pages: doc.pages ?? 0,
+        category: doc.category,
+        caseId: doc.case_id,
+        filePath: doc.file_path || "",
+        fileUrl: doc.file_url || undefined,
+        previewImageUrl: undefined,
+        content: doc.content || undefined,
+      }));
+
+      setDocuments(mappedDocuments);
+    } catch (error) {
+      console.error("Failed to load documents from Supabase", error);
+      toast.error("Unable to load documents from Supabase");
+      setDocuments([]);
+    } finally {
+      setLoadingDocuments(false);
+    }
   }, [caseId]);
 
   useEffect(() => {
     loadDocuments();
-  }, [caseId, refreshKey, loadDocuments]);
+  }, [loadDocuments]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -135,11 +170,15 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
           </CardTitle>
           <CardDescription>
             Complete the causality assessment and medical disability evaluation for case {caseId}
-            {documents.length > 0 && (
-              <span className="block mt-1 text-sm text-green-600">
-                Based on {documents.length} uploaded document{documents.length !== 1 ? 's' : ''}
-                {documents.map(doc => ` • ${doc.name}`).join('')}
-              </span>
+            {loadingDocuments ? (
+              <span className="block mt-1 text-sm text-blue-600">Loading case documents from Supabase...</span>
+            ) : (
+              documents.length > 0 && (
+                <span className="block mt-1 text-sm text-green-600">
+                  Based on {documents.length} uploaded document{documents.length !== 1 ? 's' : ''}
+                  {documents.map(doc => ` • ${doc.name}`).join('')}
+                </span>
+              )
             )}
           </CardDescription>
         </CardHeader>
