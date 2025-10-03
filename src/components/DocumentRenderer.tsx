@@ -29,10 +29,60 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
   const [fileViewerUrl, setFileViewerUrl] = useState<string | null>(null);
   const [previewViewerUrl, setPreviewViewerUrl] = useState<string | null>(null);
-  const [derivedTextContent, setDerivedTextContent] = useState<string | null>(null);
 
-  const isPDF = (doc: Document) => {
-    const type = (doc.type || '').toLowerCase();
+  useEffect(() => {
+    setPdfPreviewFailed(false);
+    setImagePreviewFailed(false);
+  }, [document.id]);
+
+  useEffect(() => {
+    let isActive = true;
+    const objectUrls: string[] = [];
+
+    const convertToObjectUrl = async (source?: string | null) => {
+      if (!source) return null;
+      if (!source.startsWith("data:")) {
+        return source;
+      }
+
+      try {
+        const response = await fetch(source);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        objectUrls.push(objectUrl);
+        return objectUrl;
+      } catch (error) {
+        console.error("Failed to convert data URL to object URL", error);
+        return null;
+      }
+    };
+
+    setFileViewerUrl(null);
+    setPreviewViewerUrl(null);
+
+    (async () => {
+      const [nextFileUrl, nextPreviewUrl] = await Promise.all([
+        convertToObjectUrl(document.fileUrl ?? null),
+        convertToObjectUrl(document.previewImageUrl ?? null),
+      ]);
+
+      if (isActive) {
+        setFileViewerUrl(nextFileUrl);
+        setPreviewViewerUrl(nextPreviewUrl);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [document.fileUrl, document.previewImageUrl]);
+
+  const effectiveFileUrl = fileViewerUrl ?? document.fileUrl ?? undefined;
+  const effectivePreviewUrl = previewViewerUrl ?? document.previewImageUrl ?? undefined;
+
+  const isPDF = (document: Document) => {
+    const type = (document.type || '').toLowerCase();
     return type.includes('pdf') || type === 'application/pdf';
   };
 
