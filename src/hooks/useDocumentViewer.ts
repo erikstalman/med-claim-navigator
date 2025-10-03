@@ -10,15 +10,17 @@ export const useDocumentViewer = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (documentId) {
-      const documents = dataService.getDocuments();
-      const foundDocument = documents.find(d => d.id === documentId);
-      console.log("Looking for document:", documentId, "Found:", foundDocument);
-      if (foundDocument) {
-        setDocument(foundDocument);
-      }
+    if (!documentId) {
+      setDocument(null);
       setLoading(false);
+      return;
     }
+
+    setLoading(true);
+    const documents = dataService.getDocuments();
+    const foundDocument = documents.find(d => d.id === documentId) ?? null;
+    setDocument(foundDocument);
+    setLoading(false);
   }, [documentId]);
 
   return { document, loading };
