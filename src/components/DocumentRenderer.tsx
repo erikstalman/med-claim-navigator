@@ -25,6 +25,62 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
     size: document.size
   });
 
+  const [pdfPreviewFailed, setPdfPreviewFailed] = useState(false);
+  const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
+  const [fileViewerUrl, setFileViewerUrl] = useState<string | null>(null);
+  const [previewViewerUrl, setPreviewViewerUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPdfPreviewFailed(false);
+    setImagePreviewFailed(false);
+  }, [document.id]);
+
+  useEffect(() => {
+    let isActive = true;
+    const objectUrls: string[] = [];
+
+    const convertToObjectUrl = async (source?: string | null) => {
+      if (!source) return null;
+      if (!source.startsWith("data:")) {
+        return source;
+      }
+
+      try {
+        const response = await fetch(source);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        objectUrls.push(objectUrl);
+        return objectUrl;
+      } catch (error) {
+        console.error("Failed to convert data URL to object URL", error);
+        return null;
+      }
+    };
+
+    setFileViewerUrl(null);
+    setPreviewViewerUrl(null);
+
+    (async () => {
+      const [nextFileUrl, nextPreviewUrl] = await Promise.all([
+        convertToObjectUrl(document.fileUrl ?? null),
+        convertToObjectUrl(document.previewImageUrl ?? null),
+      ]);
+
+      if (isActive) {
+        setFileViewerUrl(nextFileUrl);
+        setPreviewViewerUrl(nextPreviewUrl);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [document.fileUrl, document.previewImageUrl]);
+
+  const effectiveFileUrl = fileViewerUrl ?? document.fileUrl ?? undefined;
+  const effectivePreviewUrl = previewViewerUrl ?? document.previewImageUrl ?? undefined;
+
   const isPDF = (document: Document) => {
     const type = (document.type || '').toLowerCase();
     return type.includes('pdf') || type === 'application/pdf';
@@ -46,8 +102,8 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   };
 
   const renderPDFContent = () => {
-    const previewUrl = document.previewImageUrl || undefined;
-    const fileUrl = document.fileUrl;
+    const previewUrl = pdfPreviewFailed ? undefined : effectivePreviewUrl;
+    const fileUrl = effectiveFileUrl;
 
     // If we have a preview image from processing, show it
     if (previewUrl) {
@@ -71,7 +127,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
       );
     }
 
-    if (fileUrl) {
+    if (fileUrl && !pdfPreviewFailed) {
       return (
         <div className="h-full bg-gray-100 flex flex-col">
           <div className="bg-white border-b px-4 py-2 text-sm text-gray-600 flex justify-between items-center">
@@ -137,13 +193,13 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
               <li>Password-protected files</li>
               <li>Corrupted or unusual PDF formats</li>
             </ul>
-            {document.fileUrl && (
+            {fileUrl && (
               <Button
                 asChild
                 size="sm"
                 className="mb-3"
               >
-                <a href={document.fileUrl} target="_blank" rel="noopener noreferrer">
+                <a href={fileUrl} target="_blank" rel="noopener noreferrer">
                   Open Original PDF
                 </a>
               </Button>
@@ -164,7 +220,10 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   };
 
   const renderImageContent = () => {
-    const previewSource = document.previewImageUrl || document.fileUrl;
+    const previewSource = imagePreviewFailed
+      ? undefined
+      : (effectivePreviewUrl || effectiveFileUrl);
+
     if (previewSource) {
       return (
         <div className="flex items-center justify-center h-full bg-gray-100">
