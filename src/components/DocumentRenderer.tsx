@@ -16,24 +16,14 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
     ? document.name 
     : 'Unknown Document';
   
-  const [pdfPreviewFailed, setPdfPreviewFailed] = useState(false);
-  const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
-
-  useEffect(() => {
-    setPdfPreviewFailed(false);
-    setImagePreviewFailed(false);
-  }, [document.id]);
-
-  useEffect(() => {
-    console.log('Rendering document:', {
-      name: documentName,
-      type: document.type,
-      hasContent: !!document.content,
-      hasFileUrl: !!document.fileUrl,
-      hasPreviewImage: !!document.previewImageUrl,
-      size: document.size
-    });
-  }, [documentName, document.type, document.content, document.fileUrl, document.previewImageUrl, document.size]);
+  console.log('Rendering document:', {
+    name: documentName,
+    type: document.type,
+    hasContent: !!document.content,
+    hasFileUrl: !!document.fileUrl,
+    hasPreviewImage: !!document.previewImageUrl,
+    size: document.size
+  });
 
   const isPDF = (document: Document) => {
     const type = (document.type || '').toLowerCase();
@@ -60,7 +50,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
     const fileUrl = document.fileUrl;
 
     // If we have a preview image from processing, show it
-    if (previewUrl && !pdfPreviewFailed) {
+    if (previewUrl) {
       return (
         <div className="flex items-center justify-center h-full bg-gray-100">
           <img
@@ -175,7 +165,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
 
   const renderImageContent = () => {
     const previewSource = document.previewImageUrl || document.fileUrl;
-    if (previewSource && !imagePreviewFailed) {
+    if (previewSource) {
       return (
         <div className="flex items-center justify-center h-full bg-gray-100">
           <img
