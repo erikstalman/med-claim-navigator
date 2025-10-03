@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Settings, FileText, Users, Activity, Plus, Edit, Trash2 } from "lucide-react";
 import { authService } from "@/services/authService";
-import { dataService } from "@/services/dataService";
+import { getDataService } from "@/services/dataService";
 import { User, AIRule } from "@/types";
 import { toast } from "sonner";
 import UserManagement from "@/components/UserManagement";
@@ -29,6 +29,14 @@ const SystemAdminDashboard = () => {
     category: 'medical' as string
   });
 
+  const getService = () => {
+    const service = getDataService();
+    if (!service) {
+      console.warn('DataService is not available in the current environment.');
+    }
+    return service;
+  };
+
   useEffect(() => {
     const user = authService.getCurrentUser();
     if (!user || user.role !== 'system-admin') {
@@ -40,6 +48,12 @@ const SystemAdminDashboard = () => {
   }, [navigate]);
 
   const loadAIRules = () => {
+    const dataService = getService();
+    if (!dataService) {
+      setAiRules([]);
+      return;
+    }
+
     const rules = dataService.getAIRules();
     setAiRules(rules);
   };
@@ -59,6 +73,12 @@ const SystemAdminDashboard = () => {
       createdBy: currentUser?.id || '',
       updatedAt: new Date().toISOString()
     };
+
+    const dataService = getService();
+    if (!dataService) {
+      toast.error("Data storage is unavailable in the current environment.");
+      return;
+    }
 
     dataService.addAIRule(rule);
     loadAIRules();
@@ -90,6 +110,12 @@ const SystemAdminDashboard = () => {
       updatedAt: new Date().toISOString()
     };
 
+    const dataService = getService();
+    if (!dataService) {
+      toast.error("Data storage is unavailable in the current environment.");
+      return;
+    }
+
     dataService.updateAIRule(updatedRule);
     loadAIRules();
     setEditingRule(null);
@@ -98,6 +124,12 @@ const SystemAdminDashboard = () => {
   };
 
   const handleDeleteRule = (ruleId: string) => {
+    const dataService = getService();
+    if (!dataService) {
+      toast.error("Data storage is unavailable in the current environment.");
+      return;
+    }
+
     dataService.deleteAIRule(ruleId);
     loadAIRules();
     toast.success("AI rule deleted successfully");
@@ -111,6 +143,12 @@ const SystemAdminDashboard = () => {
         isActive: !rule.isActive,
         updatedAt: new Date().toISOString()
       };
+      const dataService = getService();
+      if (!dataService) {
+        toast.error("Data storage is unavailable in the current environment.");
+        return;
+      }
+
       dataService.updateAIRule(updatedRule);
       loadAIRules();
       toast.success("AI rule updated successfully");

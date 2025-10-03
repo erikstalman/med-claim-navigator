@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Document } from "@/types";
-import { dataService } from "@/services/dataService";
+import { getDataService } from "@/services/dataService";
 import { authService } from "@/services/authService";
 import { validateFiles } from "@/utils/fileValidation";
 import { readFileContent } from "@/utils/documentContent";
@@ -73,8 +73,14 @@ export const useDocumentUpload = (caseId: string, onDocumentUploaded?: (newDocum
     }
 
     setUploading(true);
-    
+
     try {
+      const dataService = getDataService();
+      if (!dataService) {
+        toast.error("Document storage is unavailable in the current environment.");
+        return;
+      }
+
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       const uploadedDocuments: Document[] = [];

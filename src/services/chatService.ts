@@ -1,9 +1,22 @@
 
 import { ChatMessage } from '../types';
-import { dataService } from './dataService';
+import { getDataService } from './dataService';
 
 class ChatService {
+  private getService() {
+    const service = getDataService();
+    if (!service) {
+      console.warn('DataService is not available in the current environment.');
+    }
+    return service;
+  }
+
   sendMessage(caseId: string, senderId: string, senderName: string, senderRole: 'admin' | 'doctor' | 'system-admin', message: string, recipientRole?: 'admin' | 'doctor' | 'system-admin'): ChatMessage {
+    const dataService = this.getService();
+    if (!dataService) {
+      throw new Error('Unable to send message: DataService is unavailable.');
+    }
+
     const chatMessage: ChatMessage = {
       id: Date.now().toString(),
       caseId,
@@ -20,6 +33,11 @@ class ChatService {
   }
 
   getMessagesForCase(caseId: string, userRole?: 'admin' | 'doctor' | 'system-admin'): ChatMessage[] {
+    const dataService = this.getService();
+    if (!dataService) {
+      return [];
+    }
+
     return dataService.getChatMessages()
       .filter(msg => {
         if (msg.caseId !== caseId) return false;
@@ -37,6 +55,11 @@ class ChatService {
   }
 
   markAsRead(messageId: string): void {
+    const dataService = this.getService();
+    if (!dataService) {
+      return;
+    }
+
     const messages = dataService.getChatMessages();
     const message = messages.find(msg => msg.id === messageId);
     if (message) {
@@ -46,17 +69,27 @@ class ChatService {
   }
 
   getUnreadCount(userId: string, userRole: 'admin' | 'doctor' | 'system-admin'): number {
-    return dataService.getChatMessages().filter(msg => 
-      !msg.isRead && 
+    const dataService = this.getService();
+    if (!dataService) {
+      return 0;
+    }
+
+    return dataService.getChatMessages().filter(msg =>
+      !msg.isRead &&
       msg.senderId !== userId &&
       (msg.recipientRole === userRole || !msg.recipientRole)
     ).length;
   }
 
   getUnreadCountForCase(caseId: string, userId: string, userRole: 'admin' | 'doctor' | 'system-admin'): number {
-    return dataService.getChatMessages().filter(msg => 
+    const dataService = this.getService();
+    if (!dataService) {
+      return 0;
+    }
+
+    return dataService.getChatMessages().filter(msg =>
       msg.caseId === caseId &&
-      !msg.isRead && 
+      !msg.isRead &&
       msg.senderId !== userId &&
       (msg.recipientRole === userRole || !msg.recipientRole)
     ).length;

@@ -1,6 +1,8 @@
 
 import { User, ActivityLog, PatientCase, ChatMessage, Document, AIRule } from '../types';
 
+const isBrowser = typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+
 interface AppData {
   users: User[];
   activityLogs: ActivityLog[];
@@ -21,6 +23,11 @@ class DataService {
 
   constructor() {
     this.data = this.loadData();
+
+    if (!isBrowser) {
+      return;
+    }
+
     this.setupAutoBackup();
     this.setupBeforeUnloadBackup();
   }
@@ -118,6 +125,10 @@ class DataService {
   }
 
   private loadData(): AppData {
+    if (!isBrowser) {
+      return this.getDefaultData();
+    }
+
     try {
       // Try to load from primary storage
       const stored = localStorage.getItem(this.STORAGE_KEY);
@@ -189,6 +200,13 @@ class DataService {
   }
 
   private saveData(data?: AppData): void {
+    if (!isBrowser) {
+      if (data) {
+        this.data = data;
+      }
+      return;
+    }
+
     try {
       const dataToSave = data || this.data;
       dataToSave.lastBackup = new Date().toISOString();
@@ -232,6 +250,10 @@ class DataService {
   }
 
   private setupAutoBackup(): void {
+    if (!isBrowser) {
+      return;
+    }
+
     // Auto-save every 30 seconds
     setInterval(() => {
       this.saveData();
@@ -239,6 +261,10 @@ class DataService {
   }
 
   private setupBeforeUnloadBackup(): void {
+    if (!isBrowser) {
+      return;
+    }
+
     window.addEventListener('beforeunload', () => {
       this.saveData();
     });
@@ -407,4 +433,18 @@ class DataService {
   }
 }
 
-export const dataService = new DataService();
+let dataServiceInstance: DataService | null = null;
+
+export const getDataService = (): DataService | null => {
+  if (!isBrowser) {
+    return null;
+  }
+
+  if (!dataServiceInstance) {
+    dataServiceInstance = new DataService();
+  }
+
+  return dataServiceInstance;
+};
+
+export { isBrowser };
