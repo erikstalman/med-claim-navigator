@@ -25,19 +25,25 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
     size: document.size
   });
 
-  const isPDF = (document: Document) => {
-    const type = (document.type || '').toLowerCase();
+  const [pdfPreviewFailed, setPdfPreviewFailed] = useState(false);
+  const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
+  const [fileViewerUrl, setFileViewerUrl] = useState<string | null>(null);
+  const [previewViewerUrl, setPreviewViewerUrl] = useState<string | null>(null);
+  const [derivedTextContent, setDerivedTextContent] = useState<string | null>(null);
+
+  const isPDF = (doc: Document) => {
+    const type = (doc.type || '').toLowerCase();
     return type.includes('pdf') || type === 'application/pdf';
   };
 
-  const isImage = (document: Document) => {
-    const type = (document.type || '').toLowerCase();
+  const isImage = (doc: Document) => {
+    const type = (doc.type || '').toLowerCase();
     return type.startsWith('image/');
   };
 
-  const isTextDocument = (document: Document) => {
-    const type = (document.type || '').toLowerCase();
-    return type.startsWith('text/') || 
+  const isTextDocument = (doc: Document) => {
+    const type = (doc.type || '').toLowerCase();
+    return type.startsWith('text/') ||
            type.includes('word') ||
            type.includes('document') ||
            type === 'application/json' ||
@@ -45,9 +51,137 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
            type === 'application/rtf';
   };
 
+  const isPlainTextSource = (doc: Document) => {
+    const type = (doc.type || '').toLowerCase();
+    return type.startsWith('text/') ||
+           type === 'application/json' ||
+           type === 'application/xml' ||
+           type === 'application/rtf';
+  };
+
+  const shouldCaptureTextContent = isPlainTextSource(document) && (!document.content || !document.content.trim());
+
+  useEffect(() => {
+    setPdfPreviewFailed(false);
+    setImagePreviewFailed(false);
+  }, [document.id]);
+
+  useEffect(() => {
+    let isActive = true;
+    const objectUrls: string[] = [];
+
+    const convertToObjectUrl = async (
+      source?: string | null,
+      { captureTextContent = false }: { captureTextContent?: boolean } = {}
+    ): Promise<{ url: string; textContent?: string } | null> => {
+      if (!source) return null;
+
+      if (!source.startsWith("data:")) {
+        if (captureTextContent) {
+          try {
+            const response = await fetch(source);
+            const text = await response.text();
+            return { url: source, textContent: text };
+          } catch (error) {
+            console.error("Failed to fetch text content from URL", error);
+          }
+        }
+        return { url: source };
+      }
+
+      const commaIndex = source.indexOf(",");
+      if (commaIndex === -1) {
+        return null;
+      }
+
+      const metadata = source.substring(0, commaIndex);
+      const dataPortion = source.substring(commaIndex + 1);
+      const isBase64 = metadata.includes(";base64");
+      const mimeMatch = metadata.match(/^data:([^;]+)/);
+      const mimeType = mimeMatch?.[1] || "application/octet-stream";
+
+      try {
+        let blob: Blob;
+        let textContent: string | undefined;
+
+        if (isBase64) {
+          const binaryString = atob(dataPortion.replace(/\s/g, ""));
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i += 1) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          blob = new Blob([bytes], { type: mimeType });
+
+          if (captureTextContent) {
+            try {
+              const arrayBuffer = await blob.arrayBuffer();
+              const decoder = new TextDecoder();
+              textContent = decoder.decode(arrayBuffer);
+            } catch (error) {
+              console.error("Failed to decode text content from base64 data", error);
+            }
+          }
+        } else {
+          const decoded = decodeURIComponent(dataPortion);
+          blob = new Blob([decoded], { type: mimeType });
+          if (captureTextContent) {
+            textContent = decoded;
+          }
+        }
+
+        const objectUrl = URL.createObjectURL(blob);
+        objectUrls.push(objectUrl);
+
+        return textContent !== undefined
+          ? { url: objectUrl, textContent }
+          : { url: objectUrl };
+      } catch (error) {
+        console.error("Failed to convert data URL to object URL", error);
+        return null;
+      }
+    };
+
+    setFileViewerUrl(null);
+    setPreviewViewerUrl(null);
+    setDerivedTextContent(null);
+
+    (async () => {
+      const [fileResult, previewResult] = await Promise.all([
+        convertToObjectUrl(document.fileUrl ?? null, {
+          captureTextContent: shouldCaptureTextContent,
+        }),
+        convertToObjectUrl(document.previewImageUrl ?? null),
+      ]);
+
+      if (isActive) {
+        setFileViewerUrl(fileResult?.url ?? null);
+        setPreviewViewerUrl(previewResult?.url ?? null);
+        if (fileResult?.textContent) {
+          setDerivedTextContent(fileResult.textContent);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [
+    document.fileUrl,
+    document.previewImageUrl,
+    document.content,
+    document.type,
+    document.id,
+    shouldCaptureTextContent,
+  ]);
+
+  const effectiveFileUrl = fileViewerUrl ?? document.fileUrl ?? undefined;
+  const effectivePreviewUrl = previewViewerUrl ?? document.previewImageUrl ?? undefined;
+
   const renderPDFContent = () => {
-    const previewUrl = document.previewImageUrl || undefined;
-    const fileUrl = document.fileUrl;
+    const previewUrl = pdfPreviewFailed ? undefined : effectivePreviewUrl;
+    const fileUrl = effectiveFileUrl;
 
     // If we have a preview image from processing, show it
     if (previewUrl) {
@@ -71,7 +205,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
       );
     }
 
-    if (fileUrl) {
+    if (fileUrl && !pdfPreviewFailed) {
       return (
         <div className="h-full bg-gray-100 flex flex-col">
           <div className="bg-white border-b px-4 py-2 text-sm text-gray-600 flex justify-between items-center">
@@ -137,13 +271,13 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
               <li>Password-protected files</li>
               <li>Corrupted or unusual PDF formats</li>
             </ul>
-            {document.fileUrl && (
+            {fileUrl && (
               <Button
                 asChild
                 size="sm"
                 className="mb-3"
               >
-                <a href={document.fileUrl} target="_blank" rel="noopener noreferrer">
+                <a href={fileUrl} target="_blank" rel="noopener noreferrer">
                   Open Original PDF
                 </a>
               </Button>
@@ -164,7 +298,10 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   };
 
   const renderImageContent = () => {
-    const previewSource = document.previewImageUrl || document.fileUrl;
+    const previewSource = imagePreviewFailed
+      ? undefined
+      : (effectivePreviewUrl || effectiveFileUrl);
+
     if (previewSource) {
       return (
         <div className="flex items-center justify-center h-full bg-gray-100">
@@ -187,7 +324,11 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
     }
     
     // Show image info if no URL available but we have content
-    if (document.content) {
+    const textContent = document.content?.trim()
+      ? document.content
+      : derivedTextContent ?? undefined;
+
+    if (textContent) {
       return (
         <div className="h-full overflow-auto bg-white">
           <div className="max-w-4xl mx-auto p-8">
@@ -199,7 +340,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
               </div>
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <pre className="text-sm text-blue-800 whitespace-pre-wrap">{document.content}</pre>
+              <pre className="text-sm text-blue-800 whitespace-pre-wrap">{textContent}</pre>
             </div>
           </div>
         </div>
@@ -226,7 +367,11 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   };
 
   const renderTextContent = () => {
-    if (document.content) {
+    const textContent = document.content?.trim()
+      ? document.content
+      : derivedTextContent ?? undefined;
+
+    if (textContent) {
       return (
         <div className="h-full overflow-auto bg-white">
           <div className="max-w-4xl mx-auto p-8">
@@ -246,7 +391,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
               }}
             >
               <pre className="text-gray-800 leading-relaxed whitespace-pre-wrap font-mono text-sm">
-                {document.content}
+                {textContent}
               </pre>
             </div>
           </div>
@@ -268,8 +413,8 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
             </div>
           </div>
           
-          {document.content ? (
-            <div 
+          {(document.content && document.content.trim()) || derivedTextContent ? (
+            <div
               className="bg-gray-50 border rounded-lg p-4"
               style={{
                 fontSize: `${Math.max(zoom / 100, 0.5)}em`,
@@ -278,7 +423,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
               }}
             >
               <pre className="text-gray-800 leading-relaxed whitespace-pre-wrap text-sm">
-                {document.content}
+                {(document.content && document.content.trim()) || derivedTextContent}
               </pre>
             </div>
           ) : (
