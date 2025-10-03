@@ -1,4 +1,5 @@
 
+import { useEffect, useState } from "react";
 import { FileText, AlertCircle, RefreshCw, Image, FileIcon, File } from "lucide-react";
 import { Document } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
             onError={(e) => {
               console.error('PDF preview image failed to load');
               e.currentTarget.style.display = 'none';
+              setPdfPreviewFailed(true);
             }}
           />
         </div>
@@ -135,9 +137,20 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
               <li>Password-protected files</li>
               <li>Corrupted or unusual PDF formats</li>
             </ul>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            {document.fileUrl && (
+              <Button
+                asChild
+                size="sm"
+                className="mb-3"
+              >
+                <a href={document.fileUrl} target="_blank" rel="noopener noreferrer">
+                  Open Original PDF
+                </a>
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => window.location.reload()}
               className="text-yellow-800 border-yellow-300 hover:bg-yellow-100"
             >
@@ -166,6 +179,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
             onError={(e) => {
               console.error('Image failed to load');
               e.currentTarget.style.display = 'none';
+              setImagePreviewFailed(true);
             }}
           />
         </div>

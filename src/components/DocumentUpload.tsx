@@ -24,6 +24,15 @@ interface UploadFile extends File {
   error?: string;
 }
 
+const readFileAsDataUrl = (file: File) => {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+};
+
 const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => {
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -130,15 +139,25 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
         pageCount: processedDoc.pageCount,
         detectedType: processedDoc.detectedType
       });
-      
+
       updateFileStatus(file.id, { progress: 75 });
 
       // Get current user info
       const currentUser = authService.getCurrentUser();
-      
+
       // Create document record with proper type and size calculation
       const sizeInKB = fileSize > 0 ? (fileSize / 1024).toFixed(2) : '0.00';
-      
+
+      let fileDataUrl = processedDoc.fileDataUrl;
+      if (!fileDataUrl) {
+        try {
+          fileDataUrl = await readFileAsDataUrl(file);
+          console.log('Generated file data URL locally because processor did not return one');
+        } catch (readError) {
+          console.warn('Unable to create data URL for file:', readError);
+        }
+      }
+
       const document: Document = {
         id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: fileName, // Use the actual file name

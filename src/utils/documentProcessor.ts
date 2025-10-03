@@ -85,7 +85,8 @@ export class DocumentProcessor {
     try {
       console.log('Processing PDF:', file.name, 'Size:', file.size);
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
       
       let fullText = '';
       const pageCount = pdf.numPages;
