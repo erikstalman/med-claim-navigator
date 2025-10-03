@@ -172,16 +172,20 @@ class DataService {
     };
   }
 
-  private validateData(data: any): data is AppData {
-    return data &&
-           typeof data === 'object' &&
-           Array.isArray(data.users) &&
-           Array.isArray(data.activityLogs) &&
-           Array.isArray(data.cases) &&
-           Array.isArray(data.chatMessages) &&
-           Array.isArray(data.documents) &&
-           Array.isArray(data.aiRules) &&
-           typeof data.version === 'string';
+  private validateData(data: unknown): data is AppData {
+    if (!data || typeof data !== 'object') {
+      return false;
+    }
+
+    const candidate = data as Partial<AppData> & Record<string, unknown>;
+
+    return Array.isArray(candidate.users) &&
+           Array.isArray(candidate.activityLogs) &&
+           Array.isArray(candidate.cases) &&
+           Array.isArray(candidate.chatMessages) &&
+           Array.isArray(candidate.documents) &&
+           Array.isArray(candidate.aiRules) &&
+           typeof candidate.version === 'string';
   }
 
   private saveData(data?: AppData): void {

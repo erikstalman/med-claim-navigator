@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,13 +20,7 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-    loadDocuments();
-  }, [caseId]);
-
-  const loadDocuments = () => {
+  const loadDocuments = useCallback(() => {
     try {
       const caseDocuments = dataService.getDocuments().filter(doc => doc.caseId === caseId);
       console.log(`Loading documents for case: ${caseId} Found: ${caseDocuments.length}`);
@@ -35,7 +29,13 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
       console.error('Error loading documents:', error);
       setDocuments([]);
     }
-  };
+  }, [caseId]);
+
+  useEffect(() => {
+    const user = authService.getCurrentUser();
+    setCurrentUser(user);
+    loadDocuments();
+  }, [caseId, loadDocuments]);
 
   const handleViewDocument = (documentId: string) => {
     navigate(`/document/${documentId}`);

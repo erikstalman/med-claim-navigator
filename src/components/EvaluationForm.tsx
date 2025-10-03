@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -46,16 +46,16 @@ const EvaluationForm = ({ caseId }: EvaluationFormProps) => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    loadDocuments();
-  }, [caseId, refreshKey]);
-
-  const loadDocuments = () => {
+  const loadDocuments = useCallback(() => {
     const allDocuments = dataService.getDocuments();
     const caseDocuments = allDocuments.filter(doc => doc.caseId === caseId);
     console.log("EvaluationForm loading documents for case:", caseId, "Found:", caseDocuments.length);
     setDocuments(caseDocuments);
-  };
+  }, [caseId]);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [caseId, refreshKey, loadDocuments]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));

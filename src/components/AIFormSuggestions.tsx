@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,9 +34,9 @@ const AIFormSuggestions = ({
   const [loading, setLoading] = useState(false);
   const [rejectedFields, setRejectedFields] = useState<Set<string>>(new Set());
 
-  const generateSuggestions = async () => {
+  const generateSuggestions = useCallback(async () => {
     setLoading(true);
-    
+
     try {
       // Simulate AI analysis of documents
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -93,13 +93,13 @@ const AIFormSuggestions = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentFormData, rejectedFields]);
 
   useEffect(() => {
     if (documents.length > 0) {
-      generateSuggestions();
+      void generateSuggestions();
     }
-  }, [documents.length]);
+  }, [documents.length, generateSuggestions]);
 
   const handleAccept = (suggestion: Suggestion) => {
     onAcceptSuggestion(suggestion.field, suggestion.value);

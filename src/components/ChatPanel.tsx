@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,25 +21,25 @@ const ChatPanel = ({ caseId, isOpen, onClose }: ChatPanelProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [recipientRole, setRecipientRole] = useState<'admin' | 'doctor' | 'system-admin' | 'all'>('all');
-  const currentUser = authService.getCurrentUser();
+  const [currentUser] = useState(() => authService.getCurrentUser());
 
-  useEffect(() => {
-    if (isOpen && caseId) {
-      loadMessages();
-    }
-  }, [isOpen, caseId]);
-
-  const loadMessages = () => {
+  const loadMessages = useCallback(() => {
     const caseMessages = chatService.getMessagesForCase(caseId, currentUser?.role as 'admin' | 'doctor' | 'system-admin');
     setMessages(caseMessages);
-    
+
     // Mark messages as read
     caseMessages.forEach(msg => {
       if (!msg.isRead && msg.senderId !== currentUser?.id) {
         chatService.markAsRead(msg.id);
       }
     });
-  };
+  }, [caseId, currentUser?.id, currentUser?.role]);
+
+  useEffect(() => {
+    if (isOpen && caseId) {
+      loadMessages();
+    }
+  }, [isOpen, caseId, loadMessages]);
 
   const handleSendMessage = () => {
     if (!newMessage.trim() || !currentUser) return;

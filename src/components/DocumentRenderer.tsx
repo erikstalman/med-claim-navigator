@@ -1,4 +1,5 @@
 
+import { useEffect, useState } from "react";
 import { FileText, AlertCircle, RefreshCw, Image, FileIcon, File } from "lucide-react";
 import { Document } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -15,13 +16,24 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
     ? document.name 
     : 'Unknown Document';
   
-  console.log('Rendering document:', {
-    name: documentName,
-    type: document.type,
-    hasContent: !!document.content,
-    hasFileUrl: !!document.fileUrl,
-    size: document.size
-  });
+  const [pdfPreviewFailed, setPdfPreviewFailed] = useState(false);
+  const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
+
+  useEffect(() => {
+    setPdfPreviewFailed(false);
+    setImagePreviewFailed(false);
+  }, [document.id]);
+
+  useEffect(() => {
+    console.log('Rendering document:', {
+      name: documentName,
+      type: document.type,
+      hasContent: !!document.content,
+      hasFileUrl: !!document.fileUrl,
+      hasPreviewImage: !!document.previewImageUrl,
+      size: document.size
+    });
+  }, [documentName, document.type, document.content, document.fileUrl, document.previewImageUrl, document.size]);
 
   const isPDF = (document: Document) => {
     const type = (document.type || '').toLowerCase();
@@ -44,12 +56,15 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   };
 
   const renderPDFContent = () => {
+    const previewUrl = document.previewImageUrl || undefined;
+    const fileUrl = document.fileUrl;
+
     // If we have a preview image from processing, show it
-    if (document.fileUrl) {
+    if (previewUrl && !pdfPreviewFailed) {
       return (
         <div className="flex items-center justify-center h-full bg-gray-100">
           <img
-            src={document.fileUrl}
+            src={previewUrl}
             alt={`Preview of ${documentName}`}
             className="max-w-full max-h-full object-contain border shadow-lg rounded"
             style={{
@@ -59,12 +74,30 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
             onError={(e) => {
               console.error('PDF preview image failed to load');
               e.currentTarget.style.display = 'none';
+              setPdfPreviewFailed(true);
             }}
           />
         </div>
       );
     }
-    
+
+    if (fileUrl) {
+      return (
+        <div className="h-full bg-gray-100 flex flex-col">
+          <div className="bg-white border-b px-4 py-2 text-sm text-gray-600 flex justify-between items-center">
+            <span>Viewing PDF: {documentName}</span>
+            <span>{document.pages} pages • {document.size}</span>
+          </div>
+          <iframe
+            src={fileUrl}
+            title={documentName}
+            className="flex-1 w-full"
+            style={{ border: 'none' }}
+          />
+        </div>
+      );
+    }
+
     // If we have extracted text content, show it in a document-like format
     if (document.content && document.content.trim() && !document.content.includes('could not be processed')) {
       return (
@@ -114,9 +147,20 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
               <li>Password-protected files</li>
               <li>Corrupted or unusual PDF formats</li>
             </ul>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            {document.fileUrl && (
+              <Button
+                asChild
+                size="sm"
+                className="mb-3"
+              >
+                <a href={document.fileUrl} target="_blank" rel="noopener noreferrer">
+                  Open Original PDF
+                </a>
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => window.location.reload()}
               className="text-yellow-800 border-yellow-300 hover:bg-yellow-100"
             >
@@ -130,11 +174,12 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   };
 
   const renderImageContent = () => {
-    if (document.fileUrl) {
+    const previewSource = document.previewImageUrl || document.fileUrl;
+    if (previewSource && !imagePreviewFailed) {
       return (
         <div className="flex items-center justify-center h-full bg-gray-100">
           <img
-            src={document.fileUrl}
+            src={previewSource}
             alt={documentName}
             className="max-w-full max-h-full object-contain border shadow-lg rounded"
             style={{
@@ -144,6 +189,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
             onError={(e) => {
               console.error('Image failed to load');
               e.currentTarget.style.display = 'none';
+              setImagePreviewFailed(true);
             }}
           />
         </div>

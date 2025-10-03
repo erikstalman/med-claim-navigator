@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,13 @@ const CaseDetails = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
 
+  const loadDocuments = useCallback(() => {
+    if (caseId) {
+      const caseDocuments = dataService.getDocuments().filter(doc => doc.caseId === caseId);
+      setDocuments(caseDocuments);
+    }
+  }, [caseId]);
+
   useEffect(() => {
     const user = authService.getCurrentUser();
     if (!user) {
@@ -40,14 +47,7 @@ const CaseDetails = () => {
         navigate(user.role === 'admin' ? '/admin' : '/doctor');
       }
     }
-  }, [caseId, navigate]);
-
-  const loadDocuments = () => {
-    if (caseId) {
-      const caseDocuments = dataService.getDocuments().filter(doc => doc.caseId === caseId);
-      setDocuments(caseDocuments);
-    }
-  };
+  }, [caseId, navigate, loadDocuments]);
 
   const handleDocumentUploaded = (newDocument: Document) => {
     console.log('Document uploaded:', newDocument);
