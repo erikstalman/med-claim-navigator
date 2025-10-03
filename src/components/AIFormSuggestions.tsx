@@ -66,7 +66,7 @@ const AIFormSuggestions = ({
 
   useEffect(() => {
     if (documents.length > 0) {
-      generateSuggestions();
+      void generateSuggestions();
     }
   }, [documents.length, generateSuggestions]);
 
