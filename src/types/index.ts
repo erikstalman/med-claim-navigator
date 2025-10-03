@@ -76,7 +76,8 @@ export interface Document {
   category: string;
   caseId: string;
   filePath: string;
-  fileUrl?: string; // optional file URL for viewing
+  fileUrl?: string; // optional file URL for viewing/downloading the original document
+  previewImageUrl?: string; // optional preview image (e.g. rendered PDF page or image thumbnail)
   content?: string; // extracted text for AI processing
 }
 

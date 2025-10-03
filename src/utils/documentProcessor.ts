@@ -2,6 +2,8 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 
+type PDFTextContentItem = pdfjsLib.TextItem | pdfjsLib.TextMarkedContent;
+
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
@@ -10,10 +12,25 @@ export interface ProcessedDocument {
   pageCount: number;
   textContent?: string;
   imageDataUrl?: string;
+  previewImageUrl?: string;
+  fileDataUrl?: string;
   detectedType?: string;
 }
 
 export class DocumentProcessor {
+  private static async readFileAsDataUrl(file: File): Promise<string | undefined> {
+    if (typeof window === 'undefined' || typeof FileReader === 'undefined') {
+      return undefined;
+    }
+
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
   static detectFileType(file: File): string {
     // Always use the file name for detection as it's more reliable
     const fileName = (file.name || 'unknown-file').toLowerCase();
@@ -58,10 +75,18 @@ export class DocumentProcessor {
   }
 
   static async processPDF(file: File): Promise<ProcessedDocument> {
+    let fileDataUrl: string | undefined;
+    try {
+      fileDataUrl = await this.readFileAsDataUrl(file);
+    } catch (readError) {
+      console.warn('Could not create PDF data URL for original file:', readError);
+    }
+
     try {
       console.log('Processing PDF:', file.name, 'Size:', file.size);
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
       
       let fullText = '';
       const pageCount = pdf.numPages;
@@ -74,7 +99,7 @@ export class DocumentProcessor {
           const page = await pdf.getPage(i);
           const textContent = await page.getTextContent();
           const pageText = textContent.items
-            .map((item: any) => item.str)
+            .map((item: PDFTextContentItem) => ('str' in item ? item.str : ''))
             .join(' ');
           fullText += pageText + '\n\n';
         } catch (pageError) {
@@ -110,6 +135,8 @@ export class DocumentProcessor {
         pageCount,
         textContent: fullText.trim(),
         imageDataUrl,
+        previewImageUrl: imageDataUrl,
+        fileDataUrl,
         detectedType: 'application/pdf'
       };
     } catch (error) {
@@ -117,28 +144,43 @@ export class DocumentProcessor {
       return {
         content: `PDF Document: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nThis PDF could not be processed for preview. It may be password-protected, corrupted, or in an unsupported format.`,
         pageCount: 1,
+        fileDataUrl,
         detectedType: 'application/pdf'
       };
     }
   }
-  
+
   static async processDocx(file: File): Promise<ProcessedDocument> {
     try {
       console.log('Processing DOCX:', file.name);
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.extractRawText({ arrayBuffer });
-      
+      let fileDataUrl: string | undefined;
+      try {
+        fileDataUrl = await this.readFileAsDataUrl(file);
+      } catch (readError) {
+        console.warn('Could not create DOCX data URL for original file:', readError);
+      }
+
       return {
         content: result.value || `DOCX Document: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nContent could not be extracted.`,
         pageCount: 1,
         textContent: result.value,
+        fileDataUrl,
         detectedType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       };
     } catch (error) {
       console.error('Error processing DOCX:', error);
+      let fallbackDataUrl: string | undefined;
+      try {
+        fallbackDataUrl = await this.readFileAsDataUrl(file);
+      } catch (readError) {
+        console.warn('Could not create fallback DOCX data URL for original file:', readError);
+      }
       return {
         content: `DOCX Document: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nThis document could not be processed for preview.`,
         pageCount: 1,
+        fileDataUrl: fallbackDataUrl,
         detectedType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       };
     }
@@ -156,6 +198,8 @@ export class DocumentProcessor {
             content: `Image: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type}\nDimensions: Available in preview`,
             pageCount: 1,
             imageDataUrl,
+            previewImageUrl: imageDataUrl,
+            fileDataUrl: imageDataUrl,
             detectedType: file.type || 'image/unknown'
           });
         };
@@ -163,6 +207,7 @@ export class DocumentProcessor {
           resolve({
             content: `Image: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type}\nPreview could not be generated.`,
             pageCount: 1,
+            fileDataUrl: undefined,
             detectedType: file.type || 'image/unknown'
           });
         };
@@ -173,6 +218,7 @@ export class DocumentProcessor {
       return {
         content: `Image: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nThis image could not be processed for preview.`,
         pageCount: 1,
+        fileDataUrl: undefined,
         detectedType: file.type || 'image/unknown'
       };
     }
@@ -182,24 +228,45 @@ export class DocumentProcessor {
     try {
       console.log('Processing Text file:', file.name);
       const text = await file.text();
-      
+      let fileDataUrl: string | undefined;
+      try {
+        fileDataUrl = await this.readFileAsDataUrl(file);
+      } catch (readError) {
+        console.warn('Could not create text file data URL for original file:', readError);
+      }
+
       return {
         content: text || `Text file: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nThis text file appears to be empty.`,
         pageCount: 1,
         textContent: text,
+        fileDataUrl,
         detectedType: 'text/plain'
       };
     } catch (error) {
       console.error('Error processing text file:', error);
+      let fallbackDataUrl: string | undefined;
+      try {
+        fallbackDataUrl = await this.readFileAsDataUrl(file);
+      } catch (readError) {
+        console.warn('Could not create fallback text file data URL for original file:', readError);
+      }
       return {
         content: `Text file: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nThis text file could not be read.`,
         pageCount: 1,
+        fileDataUrl: fallbackDataUrl,
         detectedType: 'text/plain'
       };
     }
   }
 
   static async processGenericFile(file: File): Promise<ProcessedDocument> {
+    let fileDataUrl: string | undefined;
+    try {
+      fileDataUrl = await this.readFileAsDataUrl(file);
+    } catch (readError) {
+      console.warn('Could not create generic file data URL for original file:', readError);
+    }
+
     try {
       // Try to read as text first
       const text = await file.text();
@@ -208,6 +275,7 @@ export class DocumentProcessor {
           content: text,
           pageCount: 1,
           textContent: text,
+          fileDataUrl,
           detectedType: file.type || 'text/plain'
         };
       }
@@ -219,10 +287,11 @@ export class DocumentProcessor {
     return {
       content: `Document: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\nType: ${file.type || 'Unknown'}\n\nThis document has been uploaded successfully and is available for download.\n\nFile details:\n- Format: ${file.type || 'Unknown'}\n- Last modified: ${file.lastModified ? new Date(file.lastModified).toLocaleDateString() : 'Unknown'}`,
       pageCount: 1,
+      fileDataUrl,
       detectedType: file.type || 'application/octet-stream'
     };
   }
-  
+
   static async processDocument(file: File): Promise<ProcessedDocument> {
     // Validate file - ensure we have the essential properties
     if (!file) {
@@ -249,9 +318,9 @@ export class DocumentProcessor {
     
     // Detect the actual file type
     const detectedType = this.detectFileType(file);
-    
+
     console.log('Detected file type:', detectedType);
-    
+
     try {
       if (detectedType === 'application/pdf') {
         return await this.processPDF(file);
@@ -266,10 +335,17 @@ export class DocumentProcessor {
       }
     } catch (error) {
       console.error('Error processing document:', error);
+      let fallbackDataUrl: string | undefined;
+      try {
+        fallbackDataUrl = await this.readFileAsDataUrl(file);
+      } catch (readError) {
+        console.warn('Could not create fallback data URL for original file:', readError);
+      }
       // Return a basic document info even if processing fails
       return {
         content: `Document: ${fileName}\nSize: ${(fileSize / 1024).toFixed(2)} KB\nType: ${detectedType}\n\nThis document could not be processed for preview but has been uploaded successfully.\n\nError details: ${error instanceof Error ? error.message : 'Unknown error'}`,
         pageCount: 1,
+        fileDataUrl: fallbackDataUrl,
         detectedType
       };
     }
