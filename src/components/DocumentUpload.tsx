@@ -36,13 +36,17 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
       lastModified: f.lastModified
     })));
     
-    const newFiles: UploadFile[] = acceptedFiles.map(file => ({
-      ...file,
-      id: Math.random().toString(36).substr(2, 9),
-      category: 'medical',
-      progress: 0,
-      status: 'pending'
-    }));
+    const newFiles: UploadFile[] = acceptedFiles.map(file => {
+      // Preserve the original File prototype so we retain browser File APIs
+      const fileWithMeta = Object.assign(file, {
+        id: Math.random().toString(36).substr(2, 9),
+        category: 'medical',
+        progress: 0,
+        status: 'pending' as UploadFile['status']
+      });
+
+      return fileWithMeta as UploadFile;
+    });
     
     setFiles(prev => [...prev, ...newFiles]);
   }, []);
@@ -144,11 +148,12 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
         uploadedById: currentUser?.id || '1',
         size: `${sizeInKB} KB`,
         pages: processedDoc.pageCount || 1,
-        category: file.category as any,
+        category: file.category,
         caseId: caseId,
         filePath: `documents/${caseId}/${fileName}`,
         content: processedDoc.content,
-        fileUrl: processedDoc.imageDataUrl // For PDF preview images and other file URLs
+        fileUrl: processedDoc.fileDataUrl,
+        previewImageUrl: processedDoc.previewImageUrl || processedDoc.imageDataUrl
       };
 
       console.log('Saving document to dataService:', {
