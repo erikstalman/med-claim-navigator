@@ -148,11 +148,12 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
         uploadedById: currentUser?.id || '1',
         size: `${sizeInKB} KB`,
         pages: processedDoc.pageCount || 1,
-        category: file.category as any,
+        category: file.category,
         caseId: caseId,
         filePath: `documents/${caseId}/${fileName}`,
         content: processedDoc.content,
-        fileUrl: processedDoc.imageDataUrl // For PDF preview images and other file URLs
+        fileUrl: processedDoc.fileDataUrl,
+        previewImageUrl: processedDoc.previewImageUrl || processedDoc.imageDataUrl
       };
 
       console.log('Saving document to dataService:', {

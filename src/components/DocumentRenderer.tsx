@@ -20,6 +20,7 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
     type: document.type,
     hasContent: !!document.content,
     hasFileUrl: !!document.fileUrl,
+    hasPreviewImage: !!document.previewImageUrl,
     size: document.size
   });
 
@@ -44,12 +45,15 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   };
 
   const renderPDFContent = () => {
+    const previewUrl = document.previewImageUrl || undefined;
+    const fileUrl = document.fileUrl;
+
     // If we have a preview image from processing, show it
-    if (document.fileUrl) {
+    if (previewUrl) {
       return (
         <div className="flex items-center justify-center h-full bg-gray-100">
           <img
-            src={document.fileUrl}
+            src={previewUrl}
             alt={`Preview of ${documentName}`}
             className="max-w-full max-h-full object-contain border shadow-lg rounded"
             style={{
@@ -64,7 +68,24 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
         </div>
       );
     }
-    
+
+    if (fileUrl) {
+      return (
+        <div className="h-full bg-gray-100 flex flex-col">
+          <div className="bg-white border-b px-4 py-2 text-sm text-gray-600 flex justify-between items-center">
+            <span>Viewing PDF: {documentName}</span>
+            <span>{document.pages} pages • {document.size}</span>
+          </div>
+          <iframe
+            src={fileUrl}
+            title={documentName}
+            className="flex-1 w-full"
+            style={{ border: 'none' }}
+          />
+        </div>
+      );
+    }
+
     // If we have extracted text content, show it in a document-like format
     if (document.content && document.content.trim() && !document.content.includes('could not be processed')) {
       return (
@@ -130,11 +151,12 @@ const DocumentRenderer = ({ document, zoom, rotation }: DocumentRendererProps) =
   };
 
   const renderImageContent = () => {
-    if (document.fileUrl) {
+    const previewSource = document.previewImageUrl || document.fileUrl;
+    if (previewSource) {
       return (
         <div className="flex items-center justify-center h-full bg-gray-100">
           <img
-            src={document.fileUrl}
+            src={previewSource}
             alt={documentName}
             className="max-w-full max-h-full object-contain border shadow-lg rounded"
             style={{
