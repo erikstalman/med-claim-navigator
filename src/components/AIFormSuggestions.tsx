@@ -1,10 +1,11 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Bot, ThumbsUp, ThumbsDown, Edit3, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { aiService, FormSuggestion, DocumentSummary } from "@/services/aiService";
 
 interface AIFormSuggestionsProps {
   caseId: string;
@@ -14,100 +15,68 @@ interface AIFormSuggestionsProps {
   onRejectSuggestion: (field: string) => void;
 }
 
-interface Suggestion {
-  field: string;
-  fieldLabel: string;
-  value: string;
-  confidence: number;
-  reasoning: string;
-  documentReferences: Array<{ documentName: string; page?: number }>;
-}
-
-const AIFormSuggestions = ({ 
-  caseId, 
-  documents, 
-  currentFormData, 
-  onAcceptSuggestion, 
-  onRejectSuggestion 
+const AIFormSuggestions = ({
+  caseId,
+  documents,
+  currentFormData,
+  onAcceptSuggestion,
+  onRejectSuggestion
 }: AIFormSuggestionsProps) => {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<FormSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [rejectedFields, setRejectedFields] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
-  const generateSuggestions = async () => {
+  const generateSuggestions = useCallback(async () => {
     setLoading(true);
-    
+    setError(null);
+
     try {
-      // Simulate AI analysis of documents
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockSuggestions: Suggestion[] = [
-        {
-          field: "healthConditionBefore",
-          fieldLabel: "Health condition before the accident",
-          value: "Patient reported no significant pre-existing medical conditions. Medical history indicates good overall health with no chronic conditions or previous injuries to the affected area.",
-          confidence: 0.85,
-          reasoning: "Based on medical records showing no pre-existing conditions and patient intake forms",
-          documentReferences: [
-            { documentName: "Medical Records - Emergency Room", page: 2 },
-            { documentName: "Patient Intake Form", page: 1 }
-          ]
-        },
-        {
-          field: "traumaDegree",
-          fieldLabel: "Degree of violence or trauma during the accident",
-          value: "High-impact motor vehicle collision at approximately 45 mph. Significant vehicle damage documented. Patient vehicle sustained major front-end damage consistent with severe trauma.",
-          confidence: 0.92,
-          reasoning: "Police report documents high-speed collision with substantial vehicle damage",
-          documentReferences: [
-            { documentName: "Police Report", page: 1 },
-            { documentName: "Accident Scene Photos", page: 3 }
-          ]
-        },
-        {
-          field: "initialSymptoms",
-          fieldLabel: "Initial symptoms/complaints in relation to the time of accident",
-          value: "Immediate onset of neck pain, headache, and lower back discomfort within 2 hours of accident. Symptoms reported to emergency personnel at scene and documented upon hospital arrival.",
-          confidence: 0.88,
-          reasoning: "Emergency room records show symptoms documented within hours of accident",
-          documentReferences: [
-            { documentName: "Medical Records - Emergency Room", page: 3 },
-            { documentName: "Ambulance Report", page: 1 }
-          ]
-        }
-      ];
-      
-      // Filter out suggestions for fields that are already filled or rejected
-      const filteredSuggestions = mockSuggestions.filter(s => 
-        !currentFormData[s.field] && !rejectedFields.has(s.field)
+      const preparedDocuments: DocumentSummary[] = documents.map(doc => ({
+        id: doc.id,
+        name: doc.name,
+        category: doc.category,
+      }));
+
+      const generatedSuggestions = await aiService.generateFormSuggestions({
+        caseId,
+        documents: preparedDocuments,
+        currentFormData,
+      });
+
+      const filteredSuggestions = generatedSuggestions.filter(
+        suggestion => !currentFormData[suggestion.field] && !rejectedFields.has(suggestion.field)
       );
-      
+
       setSuggestions(filteredSuggestions);
-      
+
       if (filteredSuggestions.length > 0) {
         toast.success(`Generated ${filteredSuggestions.length} AI suggestions`);
+      } else {
+        toast.info("No new AI suggestions available right now");
       }
     } catch (error) {
       console.error("Error generating suggestions:", error);
+      setError(error instanceof Error ? error.message : "Failed to generate AI suggestions");
       toast.error("Failed to generate AI suggestions");
     } finally {
       setLoading(false);
     }
-  };
+  }, [caseId, documents, currentFormData, rejectedFields]);
 
   useEffect(() => {
     if (documents.length > 0) {
       generateSuggestions();
     }
-  }, [documents.length]);
+  }, [documents.length, generateSuggestions]);
 
-  const handleAccept = (suggestion: Suggestion) => {
+  const handleAccept = (suggestion: FormSuggestion) => {
     onAcceptSuggestion(suggestion.field, suggestion.value);
     setSuggestions(prev => prev.filter(s => s.field !== suggestion.field));
     toast.success("Suggestion accepted and added to form");
   };
 
-  const handleReject = (suggestion: Suggestion) => {
+  const handleReject = (suggestion: FormSuggestion) => {
     setRejectedFields(prev => new Set([...prev, suggestion.field]));
     setSuggestions(prev => prev.filter(s => s.field !== suggestion.field));
     onRejectSuggestion(suggestion.field);
@@ -148,13 +117,18 @@ const AIFormSuggestions = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {loading && (
+        {(loading || error) && (
           <div className="text-center py-6">
             <Bot className="h-8 w-8 mx-auto mb-2 text-blue-600 animate-pulse" />
-            <p className="text-blue-700">Analyzing documents and generating suggestions...</p>
+            {loading && (
+              <p className="text-blue-700">Analyzing documents and generating suggestions...</p>
+            )}
+            {error && !loading && (
+              <p className="text-red-600">{error}</p>
+            )}
           </div>
         )}
-        
+
         {suggestions.map((suggestion, index) => (
           <div key={index} className="bg-white rounded-lg p-4 border">
             <div className="flex items-start justify-between mb-3">
