@@ -9,7 +9,7 @@ import AIDocumentChat from "@/components/AIDocumentChat";
 import DocumentList from "@/components/DocumentList";
 import DocumentUpload from "@/components/DocumentUpload";
 import EvaluationForm from "@/components/EvaluationForm";
-import { dataService } from "@/services/dataService";
+import { getDataService } from "@/services/dataService";
 import { authService } from "@/services/authService";
 import { PatientCase, User, Document } from "@/types";
 
@@ -23,6 +23,12 @@ const CaseDetails = () => {
 
   const loadDocuments = useCallback(() => {
     if (caseId) {
+      const dataService = getDataService();
+      if (!dataService) {
+        setDocuments([]);
+        return;
+      }
+
       const caseDocuments = dataService.getDocuments().filter(doc => doc.caseId === caseId);
       setDocuments(caseDocuments);
     }
@@ -37,6 +43,11 @@ const CaseDetails = () => {
     setCurrentUser(user);
 
     if (caseId) {
+      const dataService = getDataService();
+      if (!dataService) {
+        return;
+      }
+
       const cases = dataService.getCases();
       const foundCase = cases.find(c => c.id === caseId);
       if (foundCase) {

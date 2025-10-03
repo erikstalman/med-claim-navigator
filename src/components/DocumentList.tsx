@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, FileText, Download, Eye, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { dataService } from "@/services/dataService";
+import { getDataService } from "@/services/dataService";
 import { authService } from "@/services/authService";
 import { Document, User } from "@/types";
 
@@ -22,6 +22,12 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
 
   const loadDocuments = useCallback(() => {
     try {
+      const dataService = getDataService();
+      if (!dataService) {
+        setDocuments([]);
+        return;
+      }
+
       const caseDocuments = dataService.getDocuments().filter(doc => doc.caseId === caseId);
       console.log(`Loading documents for case: ${caseId} Found: ${caseDocuments.length}`);
       setDocuments(caseDocuments);
@@ -44,6 +50,12 @@ const DocumentList = ({ caseId }: DocumentListProps) => {
   const handleDeleteDocument = (documentId: string) => {
     if (currentUser?.role === 'admin') {
       try {
+        const dataService = getDataService();
+        if (!dataService) {
+          console.warn('DataService is not available in the current environment.');
+          return;
+        }
+
         dataService.deleteDocument(documentId);
         loadDocuments(); // Refresh the list
         

@@ -1,11 +1,24 @@
 import { User, ActivityLog, PatientCase } from '../types';
-import { dataService } from './dataService';
+import { getDataService } from './dataService';
 
 class AuthService {
   private currentUser: User | null = null;
 
+  private getService() {
+    const service = getDataService();
+    if (!service) {
+      console.warn('DataService is not available in the current environment.');
+    }
+    return service;
+  }
+
   login(email: string, password: string): User | null {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return null;
+      }
+
       const users = dataService.getUsers();
       console.log('Attempting login with:', email, 'Available users:', users.map(u => ({ email: u.email, role: u.role, isActive: u.isActive })));
       
@@ -38,6 +51,11 @@ class AuthService {
 
   getAllUsers(): User[] {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return [];
+      }
+
       return dataService.getUsers();
     } catch (error) {
       console.error('Error getting all users:', error);
@@ -47,6 +65,11 @@ class AuthService {
 
   getDoctors(): User[] {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return [];
+      }
+
       return dataService.getUsers().filter(u => u.role === 'doctor' && u.isActive);
     } catch (error) {
       console.error('Error getting doctors:', error);
@@ -56,6 +79,11 @@ class AuthService {
 
   getAdmins(): User[] {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return [];
+      }
+
       return dataService.getUsers().filter(u => u.role === 'admin' && u.isActive);
     } catch (error) {
       console.error('Error getting admins:', error);
@@ -65,6 +93,11 @@ class AuthService {
 
   createUser(userData: Omit<User, 'id' | 'createdAt'> & { password: string }): User {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        throw new Error('DataService is not available.');
+      }
+
       const newUser: User = {
         ...userData,
         id: Date.now().toString(),
@@ -93,6 +126,11 @@ class AuthService {
 
   updateUser(userData: User): void {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return;
+      }
+
       dataService.updateUser(userData);
     } catch (error) {
       console.error('Error updating user:', error);
@@ -101,6 +139,11 @@ class AuthService {
 
   deactivateUser(userId: string): void {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return;
+      }
+
       const users = dataService.getUsers();
       const user = users.find(u => u.id === userId);
       if (user) {
@@ -139,6 +182,11 @@ class AuthService {
   // Case management methods
   getAllCases(): PatientCase[] {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return [];
+      }
+
       return dataService.getCases();
     } catch (error) {
       console.error('Error getting all cases:', error);
@@ -148,6 +196,11 @@ class AuthService {
 
   getCasesForDoctor(doctorId: string): PatientCase[] {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return [];
+      }
+
       // Enhanced filtering to catch all possible assignment scenarios
       const allCases = dataService.getCases();
       const doctorCases = allCases.filter(case_ => {
@@ -178,6 +231,11 @@ class AuthService {
 
   addCase(case_: PatientCase): void {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return;
+      }
+
       dataService.addCase(case_);
       
       if (this.currentUser) {
@@ -198,6 +256,11 @@ class AuthService {
 
   updateCase(updatedCase: PatientCase): void {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return;
+      }
+
       updatedCase.lastUpdated = new Date().toISOString();
       dataService.updateCase(updatedCase);
       
@@ -219,9 +282,14 @@ class AuthService {
 
   deleteCase(caseId: string): void {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return;
+      }
+
       const cases = dataService.getCases();
       const case_ = cases.find(c => c.id === caseId);
-      
+
       dataService.deleteCase(caseId);
       
       if (this.currentUser && case_) {
@@ -242,6 +310,11 @@ class AuthService {
 
   assignCaseToDoctor(caseId: string, doctorId: string): void {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return;
+      }
+
       const cases = dataService.getCases();
       const users = dataService.getUsers();
       const case_ = cases.find(c => c.id === caseId);
@@ -294,6 +367,11 @@ class AuthService {
         details: details || '',
         ipAddress: '127.0.0.1'
       };
+      const dataService = this.getService();
+      if (!dataService) {
+        return;
+      }
+
       dataService.addActivityLog(log);
     } catch (error) {
       console.error('Error logging activity:', error);
@@ -302,6 +380,11 @@ class AuthService {
 
   getActivityLogs(): ActivityLog[] {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return [];
+      }
+
       return dataService.getActivityLogs().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     } catch (error) {
       console.error('Error getting activity logs:', error);
@@ -311,6 +394,11 @@ class AuthService {
 
   getUserActivityLogs(userId: string): ActivityLog[] {
     try {
+      const dataService = this.getService();
+      if (!dataService) {
+        return [];
+      }
+
       return dataService.getActivityLogs()
         .filter(log => log.userId === userId)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());

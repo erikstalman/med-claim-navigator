@@ -6,23 +6,54 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Download, Upload, Database, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
-import { dataService } from '@/services/dataService';
+import { getDataService } from '@/services/dataService';
 
 const DataManagement = () => {
-  const [stats, setStats] = useState(dataService.getDataStats());
+  const defaultStats = {
+    users: 0,
+    cases: 0,
+    activityLogs: 0,
+    chatMessages: 0,
+    documents: 0,
+    aiRules: 0,
+    lastBackup: new Date(0).toISOString(),
+    version: '0.0.0'
+  };
+
+  const [stats, setStats] = useState(() => getDataService()?.getDataStats() ?? defaultStats);
   const [importData, setImportData] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
 
+  const getService = () => {
+    const service = getDataService();
+    if (!service) {
+      toast({
+        title: 'Data service unavailable',
+        description: 'This action requires browser storage and cannot be completed in the current environment.',
+        variant: 'destructive'
+      });
+    }
+    return service;
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
-      setStats(dataService.getDataStats());
+      const dataService = getDataService();
+      if (dataService) {
+        setStats(dataService.getDataStats());
+      }
     }, 5000);
     return () => clearInterval(interval);
   }, []);
 
   const handleExport = () => {
     try {
+      const dataService = getService();
+      if (!dataService) {
+        return;
+      }
+
       const data = dataService.exportData();
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -59,6 +90,11 @@ const DataManagement = () => {
 
     setIsImporting(true);
     try {
+      const dataService = getService();
+      if (!dataService) {
+        return;
+      }
+
       const success = dataService.importData(importData);
       if (success) {
         setStats(dataService.getDataStats());
@@ -86,6 +122,11 @@ const DataManagement = () => {
   };
 
   const refreshStats = () => {
+    const dataService = getService();
+    if (!dataService) {
+      return;
+    }
+
     setStats(dataService.getDataStats());
     toast({
       title: "Stats refreshed",
@@ -95,6 +136,11 @@ const DataManagement = () => {
 
   const getStorageUsage = () => {
     try {
+      const dataService = getDataService();
+      if (!dataService) {
+        return 0;
+      }
+
       const data = dataService.exportData();
       const sizeInBytes = new Blob([data]).size;
       const sizeInKB = Math.round(sizeInBytes / 1024);

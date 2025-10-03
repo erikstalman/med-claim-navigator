@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Upload, FileText, X, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Document } from "@/types";
-import { dataService } from "@/services/dataService";
+import { getDataService } from "@/services/dataService";
 import { DocumentProcessor } from "@/utils/documentProcessor";
 import { authService } from "@/services/authService";
 
@@ -112,6 +112,11 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
 
   const processAndUploadFile = async (file: UploadFile) => {
     try {
+      const dataService = getDataService();
+      if (!dataService) {
+        throw new Error('Document storage is unavailable in the current environment.');
+      }
+
       // Validate file first - make sure we have valid file properties
       if (!file || !file.name || file.size === 0) {
         throw new Error('Invalid file: missing name or empty file');
@@ -181,7 +186,7 @@ const DocumentUpload = ({ caseId, onDocumentUploaded }: DocumentUploadProps) => 
         type: document.type,
         size: document.size
       });
-      
+
       // Save to data service
       dataService.addDocument(document);
       

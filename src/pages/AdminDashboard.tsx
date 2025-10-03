@@ -21,7 +21,7 @@ import ChatPanel from "@/components/ChatPanel";
 import CaseAssignment from "@/components/CaseAssignment";
 import { authService } from "@/services/authService";
 import { chatService } from "@/services/chatService";
-import { dataService } from "@/services/dataService";
+import { getDataService } from "@/services/dataService";
 import { PatientCase, Document, User, ActivityLog } from "@/types";
 import { toast } from "sonner";
 
@@ -39,6 +39,14 @@ const AdminDashboard = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
 
+  const getService = () => {
+    const service = getDataService();
+    if (!service) {
+      console.warn('DataService is not available in the current environment.');
+    }
+    return service;
+  };
+
   useEffect(() => {
     const user = authService.getCurrentUser();
     if (!user || user.role !== 'admin') {
@@ -51,6 +59,14 @@ const AdminDashboard = () => {
   }, [navigate]);
 
   const loadInitialData = () => {
+    const dataService = getService();
+    if (!dataService) {
+      setCases([]);
+      setDocuments([]);
+      setActivityLogs([]);
+      return;
+    }
+
     setCases(dataService.getCases());
     setDocuments(dataService.getDocuments());
     setActivityLogs(dataService.getActivityLogs());
@@ -64,6 +80,12 @@ const AdminDashboard = () => {
   };
 
   const handleCaseUpdate = (updatedCase: PatientCase) => {
+    const dataService = getService();
+    if (!dataService) {
+      toast.error("Data storage is unavailable in the current environment.");
+      return;
+    }
+
     dataService.updateCase(updatedCase);
     setCases(dataService.getCases());
 
@@ -89,6 +111,12 @@ const AdminDashboard = () => {
 
   const handleCaseDelete = (caseId: string) => {
     const caseToDelete = cases.find(c => c.id === caseId);
+    const dataService = getService();
+    if (!dataService) {
+      toast.error("Data storage is unavailable in the current environment.");
+      return;
+    }
+
     dataService.deleteCase(caseId);
     setCases(dataService.getCases());
     setDocuments(dataService.getDocuments().filter(doc => doc.caseId !== caseId));
@@ -122,7 +150,13 @@ const AdminDashboard = () => {
       adminId: currentUser?.id || '',
       adminAssigned: currentUser?.name || ''
     };
-    
+
+    const dataService = getService();
+    if (!dataService) {
+      toast.error("Data storage is unavailable in the current environment.");
+      return;
+    }
+
     dataService.addCase(caseWithMetadata);
     setCases(dataService.getCases());
 
@@ -157,7 +191,13 @@ const AdminDashboard = () => {
       uploadedById: currentUser?.id || '',
       uploadedBy: currentUser?.name || ''
     };
-    
+
+    const dataService = getService();
+    if (!dataService) {
+      toast.error("Data storage is unavailable in the current environment.");
+      return;
+    }
+
     dataService.addDocument(documentWithMetadata);
     setDocuments(dataService.getDocuments());
     
@@ -201,6 +241,12 @@ const AdminDashboard = () => {
   const handleDocumentDeleted = (documentId: string) => {
     const doc = documents.find(d => d.id === documentId);
     if (doc) {
+      const dataService = getService();
+      if (!dataService) {
+        toast.error("Data storage is unavailable in the current environment.");
+        return;
+      }
+
       dataService.deleteDocument(documentId);
       setDocuments(dataService.getDocuments());
       

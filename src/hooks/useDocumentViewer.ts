@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { dataService } from "@/services/dataService";
+import { getDataService } from "@/services/dataService";
 import { Document } from "@/types";
 
 export const useDocumentViewer = () => {
@@ -17,6 +17,13 @@ export const useDocumentViewer = () => {
     }
 
     setLoading(true);
+    const dataService = getDataService();
+    if (!dataService) {
+      setDocument(null);
+      setLoading(false);
+      return;
+    }
+
     const documents = dataService.getDocuments();
     const foundDocument = documents.find(d => d.id === documentId) ?? null;
     setDocument(foundDocument);
